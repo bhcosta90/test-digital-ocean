@@ -72,7 +72,16 @@ php artisan route:cache
 php artisan view:cache
 
 echo "🚀 Subindo Nginx..."
-nginx -g 'daemon off;'
+# Testar config antes de subir
+nginx -t
+
+# Subir Nginx em background para podermos monitorar se ele morre
+nginx
+
+echo "✅ Container pronto e rodando!"
+
+# Manter o container vivo e logando
+tail -f /var/log/nginx/access.log /var/log/nginx/error.log
 EOF
 
 RUN chmod +x /entrypoint.sh

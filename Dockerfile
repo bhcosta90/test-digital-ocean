@@ -6,12 +6,9 @@ FROM bhcosta90/laravel-base:test-digital-ocean AS base
 WORKDIR /var/www/html
 
 # =========================
-# AJUSTES PHP-FPM (SOCKET)
+# CORREÇÃO PHP-FPM (ARQUIVO CERTO!)
 # =========================
-RUN sed -i 's|listen = .*|listen = /var/run/php-fpm.sock|' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's|;listen.mode = 0660|listen.mode = 0666|' /usr/local/etc/php-fpm.d/www.conf \
-    && mkdir -p /var/run \
-    && chown -R www-data:www-data /var/run
+RUN sed -i 's|listen = .*|listen = 9000|' /usr/local/etc/php-fpm.d/docker.conf
 
 # =========================
 # DEPENDENCIES (CACHE)
@@ -61,7 +58,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php-fpm.sock;
+        fastcgi_pass 127.0.0.1:9000;
         fastcgi_index index.php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
@@ -79,6 +76,12 @@ EOF
 RUN cat <<'EOF' > /entrypoint.sh
 #!/bin/sh
 
+echo "🚀 Subindo PHP-FPM..."
+php-fpm -D
+
+echo "⏳ Aguardando PHP-FPM..."
+sleep 2
+
 echo "🚀 Rodando migrations..."
 php artisan migrate --force || true
 
@@ -87,9 +90,8 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-echo "🚀 Subindo serviços..."
-
-exec "$@"
+echo "🚀 Subindo Nginx..."
+nginx -g 'daemon off;'
 EOF
 
 RUN chmod +x /entrypoint.sh
@@ -100,5 +102,3 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]

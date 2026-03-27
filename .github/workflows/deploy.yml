@@ -65,6 +65,7 @@ jobs:
               -e DB_CONNECTION=mysql \
               -e DB_HOST=127.0.0.1 \
               -e DB_USERNAME=test-digital-ocean \
+              -e DB_DATABASE=test-digital-ocean \
               -e DB_PASSWORD=${{ secrets.APP_KEY }} \
               --add-host=host.docker.internal:host-gateway \
               -p 8080:80 \

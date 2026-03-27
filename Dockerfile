@@ -53,7 +53,15 @@ echo "🚀 Subindo PHP-FPM..."
 php-fpm -D
 
 echo "⏳ Aguardando PHP-FPM estabilizar..."
-sleep 2
+# Loop de verificação rápida do PHP-FPM
+for i in $(seq 1 10); do
+    if netstat -an | grep :9000 > /dev/null; then
+        echo "✅ PHP-FPM pronto!"
+        break
+    fi
+    echo "..."
+    sleep 1
+done
 
 echo "🚀 Rodando migrations (pode demorar na primeira vez)..."
 php artisan migrate --force --no-interaction || echo "⚠️ Alerta: Migrations falharam, mas continuando..."

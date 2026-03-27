@@ -32,11 +32,19 @@ jobs:
       - name: Debug
         run: ls -lh image.tar
 
-      - name: Copy to server (rsync)
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy to server
         run: |
           sudo apt-get update && sudo apt-get install -y rsync
-
-          rsync -avz -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+          
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             image.tar \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/image.tar
 

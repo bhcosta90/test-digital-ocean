@@ -22,7 +22,7 @@ jobs:
             whoami
 
       - name: Build image
-        run: docker build -t project-test --target prod .
+        run: docker build -t project-test --target app .
 
       - name: Save image
         run: |

@@ -2,7 +2,7 @@ build:
 	docker build -t project-test --target prod .
 
 deploy:
-	@build
+	make build
 	docker run -d \
 		--name app \
 		--network preview-net \

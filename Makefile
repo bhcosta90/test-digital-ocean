@@ -5,7 +5,7 @@ build:
 deploy:
 	make build
 	docker run -d \
-		--name app \
+		--name project-tes \
 		--network preview-net \
 		--add-host=host.docker.internal:host-gateway \
 		project-test

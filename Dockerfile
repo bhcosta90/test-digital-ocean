@@ -1,35 +1,9 @@
 # =========================
-# BASE
+# BASE (agora vem do Docker Hub)
 # =========================
-FROM php:8.4-apache AS base
-
-# Instala dependências do sistema + extensões PHP
-RUN apt-get update && apt-get install -y \
-    git unzip curl \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        mbstring \
-        bcmath \
-        gd \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+FROM bhcosta90/laravel-base:php-apache-8.4 AS base
 
 WORKDIR /var/www/html
-
-# Apache config
-RUN a2enmod rewrite
-RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
 # =========================
 # DEPENDENCIES (CACHE)
@@ -49,13 +23,13 @@ RUN composer install \
 # =========================
 FROM base AS prod
 
-# Copia dependências já instaladas
+# Copia vendor já pronto
 COPY --from=vendor /var/www/html/vendor /var/www/html/vendor
 
 # Copia aplicação
 COPY . .
 
-# Otimizações Laravel (sem depender de DB)
+# Otimizações Laravel
 RUN php artisan config:clear \
     && php artisan route:clear \
     && php artisan view:clear \

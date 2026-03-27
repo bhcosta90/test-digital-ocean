@@ -1,4 +1,5 @@
 build:
+	docker network create preview-net
 	docker build -t project-test --target prod .
 
 deploy:

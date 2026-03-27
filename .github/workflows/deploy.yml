@@ -16,7 +16,12 @@ jobs:
         run: docker build -t project-test --target prod .
 
       - name: Save image
-        run: docker save project-test -o image.tar
+        run: |
+          docker save project-test -o image.tar
+          sudo chown $USER:$USER image.tar
+
+      - name: Debug
+        run: ls -lh image.tar
 
       - name: Copy to server
         uses: appleboy/scp-action@v0.1.7

@@ -56,36 +56,26 @@ fi
 echo "🚀 Subindo PHP-FPM..."
 php-fpm -D
 
-echo "⏳ Aguardando PHP-FPM estabilizar..."
-# Loop de verificação rápida do PHP-FPM
-for i in $(seq 1 10); do
-    if netstat -an | grep :9000 > /dev/null; then
-        echo "✅ PHP-FPM pronto!"
-        break
-    fi
-    echo "..."
-    sleep 1
-done
+echo "⏳ Aguardando ambiente PHP-FPM..."
+sleep 2
 
 echo "🚀 Rodando migrations (pode demorar na primeira vez)..."
 php artisan migrate --force --no-interaction || echo "⚠️ Alerta: Migrations falharam, mas continuando..."
 
 echo "⚡ Cacheando configurações..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan config:cache || echo "⚠️ config:cache falhou"
+php artisan route:cache || echo "⚠️ route:cache falhou"
+php artisan view:cache || echo "⚠️ view:cache falhou"
 
 echo "🚀 Subindo Nginx..."
 # Testar config antes de subir
 nginx -t
 
-# Subir Nginx em background para podermos monitorar se ele morre
-nginx
-
 echo "✅ Container pronto e rodando!"
 
-# Manter o container vivo e logando
-tail -f /var/log/nginx/access.log /var/log/nginx/error.log
+# Usar exec para que o Nginx se torne o PID 1 e receba sinais corretamente
+# Isso substitui o processo do shell e mantém o container vivo
+exec nginx -g "daemon off;"
 EOF
 
 RUN chmod +x /entrypoint.sh
@@ -113,6 +103,7 @@ FROM base
 
 COPY --from=app /var/www/html /var/www/html
 COPY --from=app /entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 WORKDIR /var/www/html
 

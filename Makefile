@@ -1,3 +1,3 @@
 build:
-	docker build -f DockerfileBuild -t bhcosta90/laravel-base:test-digital-ocean --target build .
-	docker push bhcosta90/laravel-base:test-digital-ocean
+	docker build -f DockerfileBuild -t bhcosta90/test-digital-ocean:0 --target build .
+	docker push bhcosta90/test-digital-ocean:0

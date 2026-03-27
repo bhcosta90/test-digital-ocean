@@ -28,6 +28,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Configuração NGINX base
 RUN mkdir -p /etc/nginx/http.d && \
+    rm -rf /etc/nginx/conf.d && \
     rm -f /etc/nginx/http.d/default.conf && \
     cat <<'EOF' > /etc/nginx/http.d/default.conf
 server {

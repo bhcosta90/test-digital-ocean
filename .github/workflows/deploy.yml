@@ -43,10 +43,17 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y rsync
           
+          # Copiar imagem
           rsync -avz \
             -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             image.tar \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/image.tar
+
+          # Copiar .env
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+            .env-test-digital-ocean \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/.env
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
@@ -57,17 +64,24 @@ jobs:
           script: |
             docker load < /tmp/image.tar
             
+            # Subir App
             docker rm -f project-test || true
-
             docker run -d \
               --name project-test \
-              -e APP_KEY='${{ secrets.APP_KEY }}' \
-              -e APP_DEBUG=true \
-              -e DB_CONNECTION=mysql \
-              -e DB_HOST=host.docker.internal \
-              -e DB_USERNAME=test-digital-ocean \
-              -e DB_DATABASE=test-digital-ocean \
-              -e DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+              --restart unless-stopped \
+              --env-file ~/.env \
+              -v ~/.env:/var/www/html/.env \
               --add-host=host.docker.internal:host-gateway \
               -p 8080:80 \
               project-test
+
+            # Subir Worker
+            docker rm -f project-test-worker || true
+            docker run -d \
+              --name project-test-worker \
+              --restart unless-stopped \
+              --env-file ~/.env \
+              -v ~/.env:/var/www/html/.env \
+              -e APP_DEBUG=false \
+              --add-host=host.docker.internal:host-gateway \
+              project-test worker

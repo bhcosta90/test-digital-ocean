@@ -26,30 +26,13 @@ FROM base AS app
 COPY --from=vendor /var/www/html/vendor /var/www/html/vendor
 COPY . .
 
-# Garantir que a estrutura de pastas do storage existe
-RUN mkdir -p storage/framework/cache/data \
-             storage/framework/sessions \
-             storage/framework/views \
-             storage/logs \
-             bootstrap/cache
-
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
-
 # =========================
-# FINAL
-# =========================
-FROM base
-
-COPY --from=app /var/www/html /var/www/html
-
-WORKDIR /var/www/html
-
-# =========================
-# ENTRYPOINT
+# ENTRYPOINT SCRIPT (Shared)
 # =========================
 RUN cat <<'EOF' > /entrypoint.sh
 #!/bin/sh
+
+set -e
 
 echo "🚀 Iniciando ambiente..."
 
@@ -63,6 +46,12 @@ mkdir -p /var/www/html/storage/framework/cache/data \
 # Garantir permissões em runtime (necessário para logs/cache)
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Se o primeiro argumento for 'worker', rodar o worker e sair
+if [ "$1" = "worker" ]; then
+    echo "⚡ Iniciando Worker..."
+    exec php artisan queue:work --verbose --tries=3 --timeout=90
+fi
 
 echo "🚀 Subindo PHP-FPM..."
 php-fpm -D
@@ -100,6 +89,32 @@ tail -f /var/log/nginx/access.log /var/log/nginx/error.log
 EOF
 
 RUN chmod +x /entrypoint.sh
+
+# Garantir que a estrutura de pastas do storage existe
+RUN mkdir -p storage/framework/cache/data \
+             storage/framework/sessions \
+             storage/framework/views \
+             storage/logs \
+             bootstrap/cache
+
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
+
+# =========================
+# DEV (for local development)
+# =========================
+FROM app AS dev
+ENTRYPOINT ["/entrypoint.sh"]
+
+# =========================
+# FINAL
+# =========================
+FROM base
+
+COPY --from=app /var/www/html /var/www/html
+COPY --from=app /entrypoint.sh /entrypoint.sh
+
+WORKDIR /var/www/html
 
 # =========================
 # START

@@ -1,11 +1,15 @@
-build:
-	docker network create preview-net
-	docker build -t project-test --target prod .
+IMAGE=project-test
+CONTAINER=project-test
+NETWORK=project-test
 
-deploy:
-	make build
+build:
+	docker network inspect $(NETWORK) >/dev/null 2>&1 || docker network create $(NETWORK)
+	docker build -t $(IMAGE) --target prod .
+
+deploy: build
+	-docker rm -f $(CONTAINER)
 	docker run -d \
-		--name project-test \
-		--network preview-net \
+		--name $(CONTAINER) \
+		--network $(NETWORK) \
 		--add-host=host.docker.internal:host-gateway \
-		project-test
+		$(IMAGE)

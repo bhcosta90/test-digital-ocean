@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    ports:
+      - "8000:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: app
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - vendor/bin/data/mysql:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"

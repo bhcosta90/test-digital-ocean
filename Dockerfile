@@ -63,9 +63,7 @@ echo "🚀 Rodando migrations (pode demorar na primeira vez)..."
 php artisan migrate --force --no-interaction || echo "⚠️ Alerta: Migrations falharam, mas continuando..."
 
 echo "⚡ Cacheando configurações..."
-php artisan config:cache || echo "⚠️ config:cache falhou"
-php artisan route:cache || echo "⚠️ route:cache falhou"
-php artisan view:cache || echo "⚠️ view:cache falhou"
+php artisan optimize
 
 echo "🚀 Subindo Nginx..."
 # Testar config antes de subir

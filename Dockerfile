@@ -8,7 +8,9 @@ WORKDIR /var/www/html
 # =========================
 # CORREÇÃO PHP-FPM (ARQUIVO CERTO!)
 # =========================
-RUN sed -i 's|listen = .*|listen = 9000|' /usr/local/etc/php-fpm.d/docker.conf
+RUN sed -i 's|listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf || true \
+    && sed -i 's|listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/zz-docker.conf || true \
+    && sed -i 's|listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/docker.conf || true
 
 # =========================
 # DEPENDENCIES (CACHE)
@@ -58,8 +60,12 @@ server {
     }
 
     location ~ \.php$ {
-        include fastcgi.conf;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_pass 127.0.0.1:9000;
+        fastcgi_read_timeout 300;
+        fastcgi_connect_timeout 300;
+        fastcgi_send_timeout 300;
     }
 
     location ~ /\.ht {
@@ -74,16 +80,21 @@ EOF
 RUN cat <<'EOF' > /entrypoint.sh
 #!/bin/sh
 
+echo "🚀 Iniciando ambiente..."
+
+# Garantir permissões em runtime (necessário para logs/cache)
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
 echo "🚀 Subindo PHP-FPM..."
 php-fpm -D
 
-echo "⏳ Aguardando PHP-FPM..."
+echo "⏳ Aguardando PHP-FPM estabilizar..."
 sleep 2
 
-echo "🚀 Rodando migrations..."
-php artisan migrate --force || true
+echo "🚀 Rodando migrations (pode demorar na primeira vez)..."
+php artisan migrate --force --no-interaction || echo "⚠️ Alerta: Migrations falharam, mas continuando..."
 
-echo "⚡ Cacheando Laravel..."
+echo "⚡ Cacheando configurações..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

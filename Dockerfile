@@ -1,9 +1,17 @@
 # =========================
-# BASE (sua imagem já pronta)
+# BASE (sua imagem base)
 # =========================
-FROM bhcosta90/laravel-base:test-digital-ocean AS base
+FROM bhcosta90/laravel-base:php-nginx-8.4 AS base
 
 WORKDIR /var/www/html
+
+# =========================
+# AJUSTES PHP-FPM (SOCKET)
+# =========================
+RUN sed -i 's|listen = .*|listen = /var/run/php-fpm.sock|' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's|;listen.mode = 0660|listen.mode = 0666|' /usr/local/etc/php-fpm.d/www.conf \
+    && mkdir -p /var/run \
+    && chown -R www-data:www-data /var/run
 
 # =========================
 # DEPENDENCIES (CACHE)
@@ -53,7 +61,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_pass unix:/var/run/php-fpm.sock;
         fastcgi_index index.php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;

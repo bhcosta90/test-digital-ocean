@@ -67,7 +67,7 @@ jobs:
               -e DB_HOST=host.docker.internal \
               -e DB_USERNAME=test-digital-ocean \
               -e DB_DATABASE=test-digital-ocean \
-              -e DB_PASSWORD='${{ secrets.APP_KEY }}' \
+              -e DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
               --add-host=host.docker.internal:host-gateway \
               -p 8080:80 \
               project-test

@@ -62,6 +62,7 @@ jobs:
             docker run -d \
               --name project-test \
               -e APP_KEY='${{ secrets.APP_KEY }}' \
+              -e APP_DEBUG=true \
               -e DB_CONNECTION=mysql \
               -e DB_HOST=host.docker.internal \
               -e DB_USERNAME=test-digital-ocean \

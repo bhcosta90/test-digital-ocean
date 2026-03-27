@@ -26,6 +26,13 @@ FROM base AS app
 COPY --from=vendor /var/www/html/vendor /var/www/html/vendor
 COPY . .
 
+# Garantir que a estrutura de pastas do storage existe
+RUN mkdir -p storage/framework/cache/data \
+             storage/framework/sessions \
+             storage/framework/views \
+             storage/logs \
+             bootstrap/cache
+
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
@@ -46,8 +53,16 @@ RUN cat <<'EOF' > /entrypoint.sh
 
 echo "🚀 Iniciando ambiente..."
 
+# Criar pastas caso não existam (importante para o comando view:cache)
+mkdir -p /var/www/html/storage/framework/cache/data \
+         /var/www/html/storage/framework/sessions \
+         /var/www/html/storage/framework/views \
+         /var/www/html/storage/logs \
+         /var/www/html/bootstrap/cache
+
 # Garantir permissões em runtime (necessário para logs/cache)
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 echo "🚀 Subindo PHP-FPM..."
 php-fpm -D

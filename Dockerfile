@@ -1,57 +1,7 @@
 # =========================
-# BASE
+# BASE (sua imagem já pronta)
 # =========================
-FROM php:8.4-fpm-alpine AS build
-
-RUN apk add --no-cache \
-    bash \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libpq-dev \
-    oniguruma-dev \
-    icu-dev \
-    zip unzip \
-    nginx \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        pdo_pgsql \
-        mbstring \
-        bcmath \
-        gd \
-        intl
-
-# Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-WORKDIR /var/www/html
-
 FROM bhcosta90/laravel-base:php-nginx-8.4 AS base
-
-RUN apk add --no-cache \
-    bash \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libpq-dev \
-    oniguruma-dev \
-    icu-dev \
-    zip unzip \
-    nginx \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        pdo_pgsql \
-        mbstring \
-        bcmath \
-        gd \
-        intl
-
-# Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
@@ -91,7 +41,7 @@ WORKDIR /var/www/html
 # =========================
 # NGINX INLINE CONFIG
 # =========================
-RUN rm /etc/nginx/http.d/default.conf && \
+RUN rm -f /etc/nginx/http.d/default.conf && \
     cat <<'EOF' > /etc/nginx/http.d/default.conf
 server {
     listen 80;

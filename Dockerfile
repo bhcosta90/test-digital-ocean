@@ -2,6 +2,7 @@
 FROM php:8.4-apache AS base
 
 RUN apt-get update && apt-get install -y \
+    netcat-traditional \
     git unzip curl \
     libpng-dev \
     libjpeg-dev \

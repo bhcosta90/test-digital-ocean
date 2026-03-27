@@ -62,5 +62,6 @@ jobs:
             docker run -d \
               --name project-test \
               -e APP_KEY=${{ secrets.APP_KEY }} \
+              -e DB_CONNECTION=mysql \
               -p 8080:80 \
               project-test

@@ -46,26 +46,36 @@ WORKDIR /var/www/html
 # =========================
 # NGINX INLINE CONFIG
 # =========================
-RUN rm -f /etc/nginx/http.d/default.conf && \
-    cat <<'EOF' > /etc/nginx/http.d/default.conf
-server {
-    listen 80;
-    index index.php index.html;
-    root /var/www/html/public;
+RUN cat <<'EOF' > /etc/nginx/nginx.conf
+worker_processes 1;
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
+events {
+    worker_connections 1024;
+}
 
-    location ~ \.php$ {
-        fastcgi_pass 127.0.0.1:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
 
-    location ~ /\.ht {
-        deny all;
+    sendfile on;
+
+    server {
+        listen 80;
+        index index.php index.html;
+        root /var/www/html/public;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location ~ \.php$ {
+            include fastcgi.conf;
+            fastcgi_pass 127.0.0.1:9000;
+        }
+
+        location ~ /\.ht {
+            deny all;
+        }
     }
 }
 EOF

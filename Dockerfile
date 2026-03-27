@@ -54,7 +54,12 @@ if [ "$1" = "worker" ]; then
 fi
 
 echo "🚀 Subindo PHP-FPM..."
-php-fpm -D
+php-fpm -D || (echo "❌ Erro ao iniciar PHP-FPM" && exit 1)
+
+# Tentar ajustar permissões do diretório de log/run do nginx caso necessário
+mkdir -p /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
+chown -R www-data:www-data /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body || echo "Não foi possível mudar dono das pastas do Nginx"
+chmod -R 775 /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body || echo "Não foi possível dar permissão 775"
 
 echo "⏳ Aguardando ambiente PHP-FPM..."
 sleep 2
@@ -63,7 +68,10 @@ echo "🚀 Rodando migrations (pode demorar na primeira vez)..."
 php artisan migrate --force --no-interaction || echo "⚠️ Alerta: Migrations falharam, mas continuando..."
 
 echo "⚡ Cacheando configurações..."
-php artisan optimize
+php artisan optimize || echo "⚠️ Alerta: optimize falhou, mas continuando..."
+
+# Limpeza de caches antigos que podem travar a inicialização
+rm -rf /var/www/html/bootstrap/cache/*.php || echo "Não foi possível limpar cache do bootstrap"
 
 echo "🚀 Subindo Nginx..."
 # Testar config antes de subir

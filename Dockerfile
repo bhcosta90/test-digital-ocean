@@ -1,7 +1,7 @@
 # =========================
 # BASE (sua imagem já pronta)
 # =========================
-FROM bhcosta90/laravel-base:php-nginx-8.4 AS base
+FROM bhcosta90/laravel-base:test-digital-ocean AS base
 
 WORKDIR /var/www/html
 

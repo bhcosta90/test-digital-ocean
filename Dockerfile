@@ -7,8 +7,6 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN chmod +X ./entrypoint.sh
-
-EXPOSE 80
+RUN chmod +x ./entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

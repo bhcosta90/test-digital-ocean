@@ -59,14 +59,14 @@ jobs:
             docker load < /tmp/image.tar
             
             # Subir App
-            docker rm -f project-test || true
+            docker rm -f project-test-app || true
             docker run -d \
-              --name project-test \
-              --restart unless-stopped \
-              -v ~/.env-test-digital-ocean:/var/www/html/.env \
-              --add-host=host.docker.internal:host-gateway \
-              -p 8080:80 \
-              project-test
+              --name app \
+              --network web \
+              -l traefik.enable=true \
+              -l 'traefik.http.routers.app.rule=Host(`bhcosta90.dev.br`)' \
+              -l traefik.http.services.app.loadbalancer.server.port=80 \
+              project-test-app
 
             # Subir Worker
             docker rm -f project-test-worker || true

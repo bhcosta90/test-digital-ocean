@@ -5,7 +5,6 @@ on:
     branches: [main, sandbox, develop]
 
 env:
-  IMAGE_NAME: project-test
   ENV_BASE: .env-${{ github.event.repository.name }}
 
 jobs:
@@ -51,60 +50,62 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             set -e
-
+  
             BRANCH=${{ github.ref_name }}
             REPO=${{ github.event.repository.name }}
-
+            
             APP_NAME="$REPO-$BRANCH"
+            IMAGE_NAME="$REPO"
             ENV_BASE="${{ env.ENV_BASE }}"
-
+            
             echo "🚀 Deploying $APP_NAME"
-
+            
             docker load < /tmp/image.tar
-
-            # Garantir network
+            
             docker network inspect web >/dev/null 2>&1 || docker network create web
-
-            # Resolver ENV com fallback
+            
+            # Resolver ENV
             ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
             DEFAULT_ENV="$HOME/${ENV_BASE}"
-
+            
             if [ -f "$ENV_FILE" ]; then
-              echo "✅ Usando ENV específico: $ENV_FILE"
-              FINAL_ENV=$ENV_FILE
+          echo "✅ Usando ENV específico: $ENV_FILE"
+            FINAL_ENV=$ENV_FILE
             else
-              echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
-              FINAL_ENV=$DEFAULT_ENV
+          echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
+            FINAL_ENV=$DEFAULT_ENV
             fi
-
+            
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "❌ Nenhum arquivo .env encontrado!"
-              exit 1
+            echo "❌ Nenhum arquivo .env encontrado!"
+            exit 1
             fi
 
-            echo "📦 ENV carregado: $FINAL_ENV"
-
+          echo "📦 ENV carregado: $FINAL_ENV"
+            
+            PREFIX="${REPO}-${BRANCH}_"
+            
             # --- APP ---
             docker rm -f $APP_NAME >/dev/null 2>&1 || true
             docker run -d \
             --name $APP_NAME \
+            --network web \
+            -v $FINAL_ENV:/var/www/html/.env \
             -e REDIS_PREFIX=$PREFIX \
             -e CACHE_PREFIX=${PREFIX}cache \
             -e SESSION_PREFIX=${PREFIX}session \
-            --network web \
-            -v $FINAL_ENV:/var/www/html/.env \
             $IMAGE_NAME
             
             # --- WORKER ---
             docker rm -f ${APP_NAME}-worker >/dev/null 2>&1 || true
             docker run -d \
             --name ${APP_NAME}-worker \
-            -e REDIS_PREFIX=$PREFIX \
-            -e CACHE_PREFIX=${PREFIX}cache \
-            -e SESSION_PREFIX=${PREFIX}session \
             --network web \
             --restart unless-stopped \
             -v $FINAL_ENV:/var/www/html/.env \
+            -e REDIS_PREFIX=$PREFIX \
+            -e CACHE_PREFIX=${PREFIX}cache \
+            -e SESSION_PREFIX=${PREFIX}session \
             $IMAGE_NAME worker
 
-            echo "✅ Deploy finalizado: $APP_NAME"
+          echo "✅ Deploy finalizado: $APP_NAME"

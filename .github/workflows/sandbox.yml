@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [sandbox]
 
 jobs:
   deploy:
@@ -63,8 +63,9 @@ jobs:
             docker run -d \
               --name app \
               --network web \
+              -v ~/.env-test-digital-ocean:/var/www/html/.env \
               -l traefik.enable=true \
-              -l 'traefik.http.routers.app.rule=Host(`bhcosta90.dev.br`)' \
+              -l 'traefik.http.routers.app.rule=Host(`sandbox.bhcosta90.dev.br`)' \
               -l traefik.http.services.app.loadbalancer.server.port=80 \
               project-test-app
 
@@ -74,6 +75,7 @@ jobs:
               --name project-test-worker \
               --restart unless-stopped \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
-              -e APP_DEBUG=false \
+              -e REDIS_PREFIX=pr_${PR_NUMBER}_ \
+              -e CACHE_PREFIX=pr_${PR_NUMBER}_ \
               --add-host=host.docker.internal:host-gateway \
               project-test worker

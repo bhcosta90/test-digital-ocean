@@ -22,9 +22,8 @@ RUN apk add --no-cache \
         intl \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/www.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/zz-docker.conf || true \
-    && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/docker.conf || true
-
-RUN apk add --no-cache $PHPIZE_DEPS \
+    && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/docker.conf || true \
+    && apk add --no-cache $PHPIZE_DEPS \
     && pecl install redis \
     && docker-php-ext-enable redis
 

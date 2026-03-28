@@ -69,10 +69,10 @@ jobs:
             DEFAULT_ENV="$HOME/${ENV_BASE}"
             
             if [ -f "$ENV_FILE" ]; then
-          echo "✅ Usando ENV específico: $ENV_FILE"
+            echo "✅ Usando ENV específico: $ENV_FILE"
             FINAL_ENV=$ENV_FILE
             else
-          echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
+            echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
             FINAL_ENV=$DEFAULT_ENV
             fi
             
@@ -81,7 +81,7 @@ jobs:
             exit 1
             fi
 
-          echo "📦 ENV carregado: $FINAL_ENV"
+            echo "📦 ENV carregado: $FINAL_ENV"
             
             PREFIX="${REPO}-${BRANCH}_"
             
@@ -108,4 +108,4 @@ jobs:
             -e SESSION_PREFIX=${PREFIX}session \
             $IMAGE_NAME worker
 
-          echo "✅ Deploy finalizado: $APP_NAME"
+            echo "✅ Deploy finalizado: $APP_NAME"

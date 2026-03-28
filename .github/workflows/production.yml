@@ -64,9 +64,6 @@ jobs:
               --name project-test-app \
               --network web \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
-              -l traefik.enable=true \
-              -l 'traefik.http.routers.app.rule=Host(`bhcosta90.dev.br`)' \
-              -l traefik.http.services.app.loadbalancer.server.port=80 \
               project-test
 
             # Subir Worker

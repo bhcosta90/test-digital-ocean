@@ -112,3 +112,4 @@ jobs:
               $IMAGE_NAME worker
     
             echo "✅ Deploy finalizado: $APP_NAME"
+            exit 0

@@ -65,7 +65,7 @@ jobs:
               --restart unless-stopped \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
               --add-host=host.docker.internal:host-gateway \
-              -p 80:80 \
+              -p 8080:80 \
               project-test
 
             # Subir Worker

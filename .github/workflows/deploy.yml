@@ -1,0 +1,132 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, sandbox, develop]
+
+env:
+  ENV_BASE: .env-${{ github.event.repository.name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 📥 Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 🔐 SSH
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      # 🏷️ Nome da imagem
+      - name: Set image name
+        run: |
+          echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest" >> $GITHUB_ENV
+
+      # 🔐 Login Docker Hub
+      - name: Login no Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      # 🏗️ Build
+      - name: Build da imagem
+        run: docker build -t $IMAGE --target app .
+
+      # 🏷️ Tag latest (opcional mas recomendado)
+      - name: Tag latest
+        run: docker tag $IMAGE $IMAGE_LATEST
+
+      # 📤 Push
+      - name: Push da imagem
+        run: |
+          docker push $IMAGE
+          docker push $IMAGE_LATEST
+
+      # 🚀 Deploy no servidor
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          timeout: 30s
+          script: |
+            set -e
+
+            BRANCH=${{ github.ref_name }}
+            REPO=${{ github.event.repository.name }}
+            USER=${{ secrets.DOCKERHUB_USERNAME }}
+
+            APP_NAME="$REPO-$BRANCH"
+            IMAGE="$USER/$REPO:$BRANCH"
+            ENV_BASE="${{ env.ENV_BASE }}"
+
+            echo "🚀 Deploying $APP_NAME"
+
+            # 🔑 Login no Docker Hub (no servidor)
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
+
+            echo "📦 Baixando imagem..."
+            docker pull $IMAGE
+
+            # 🔥 Limpeza opcional (evita encher disco)
+            docker image prune -a -f || true
+
+            # Garantir network
+            docker network inspect web >/dev/null 2>&1 || docker network create web
+
+            # Resolver ENV
+            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
+            DEFAULT_ENV="$HOME/${ENV_BASE}"
+
+            if [ -f "$ENV_FILE" ]; then
+              echo "✅ Usando ENV específico: $ENV_FILE"
+              FINAL_ENV=$ENV_FILE
+            else
+              echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
+              FINAL_ENV=$DEFAULT_ENV
+            fi
+
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado!"
+              exit 1
+            fi
+
+            echo "📦 ENV carregado: $FINAL_ENV"
+
+            PREFIX="${REPO}-${BRANCH}_"
+
+            # --- APP ---
+            docker rm -f $APP_NAME-app >/dev/null 2>&1 || true
+
+            docker run -d \
+              --name $APP_NAME-app \
+              --network web \
+              --add-host=host.docker.internal:host-gateway \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX \
+              -e CACHE_PREFIX=${PREFIX}cache \
+              -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE
+
+            # --- WORKER ---
+            docker rm -f ${APP_NAME}-worker >/dev/null 2>&1 || true
+
+            docker run -d \
+              --name ${APP_NAME}-worker \
+              --network web \
+              --add-host=host.docker.internal:host-gateway \
+              --restart unless-stopped \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX \
+              -e CACHE_PREFIX=${PREFIX}cache \
+              -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE worker
+
+            echo "✅ Deploy finalizado: $APP_NAME"

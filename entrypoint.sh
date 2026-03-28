@@ -31,5 +31,3 @@ php artisan optimize || echo "⚠️ Alerta: optimize falhou, mas continuando...
 rm -rf /var/www/html/bootstrap/cache/*.php || echo "Não foi possível limpar cache do bootstrap"
 
 echo "✅ Tarefas do Laravel concluídas!"
-
-exec php-fpm

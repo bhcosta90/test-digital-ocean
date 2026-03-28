@@ -50,7 +50,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             set -e
-  
+
             BRANCH=${{ github.ref_name }}
             REPO=${{ github.event.repository.name }}
             

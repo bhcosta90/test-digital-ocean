@@ -90,9 +90,9 @@ jobs:
             PREFIX="${REPO}-${BRANCH}_"
     
             # --- APP ---
-            docker rm -f $APP_NAME >/dev/null 2>&1 || true
+            docker rm -f $APP_NAME-app >/dev/null 2>&1 || true
             docker run -d \
-              --name $APP_NAME \
+              --name $APP_NAME-app \
               --network web \
               --add-host=host.docker.internal:host-gateway \
               -v $FINAL_ENV:/var/www/html/.env \

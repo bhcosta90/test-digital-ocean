@@ -50,8 +50,8 @@ ENTRYPOINT ["/entrypoint.sh"]
 FROM base
 
 COPY --from=app /var/www/html /var/www/html
-COPY --from=app /entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+
+RUN chmod +x ./entrypoint.sh
 
 WORKDIR /var/www/html
 
@@ -60,4 +60,4 @@ WORKDIR /var/www/html
 # =========================
 EXPOSE 80
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]

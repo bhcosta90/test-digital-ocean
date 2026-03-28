@@ -61,7 +61,7 @@ jobs:
             # Subir App
             docker rm -f project-test-app || true
             docker run -d \
-              --name app \
+              --name project-test-app \
               --network web \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
               -l traefik.enable=true \

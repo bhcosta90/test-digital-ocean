@@ -18,7 +18,7 @@ chmod -R 775 ./storage ./bootstrap/cache
 # Se o primeiro argumento for 'worker', rodar o worker e sair
 if [ "$1" = "worker" ]; then
     echo "⚡ Iniciando Worker..."
-    exec php artisan queue:work --verbose --tries=3 --timeout=90
+    exec php artisan horizon
 fi
 
 echo "🚀 Rodando migrations (pode demorar na primeira vez)..."

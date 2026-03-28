@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, sandbox, develop]
 
 jobs:
   deploy:
@@ -56,22 +56,27 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            BRANCH=${{ github.ref_name }}
+            APP_NAME=project-test-$BRANCH
+
             docker load < /tmp/image.tar
-            
-            # Subir App
-            docker rm -f project-test-app || true
+
+            # Criar network se não existir
+            docker network create web || true
+
+            # Subir App isolado
+            docker rm -f $APP_NAME || true
             docker run -d \
-              --name project-test-app \
+              --name $APP_NAME \
               --network web \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
               project-test
 
-            # Subir Worker
-            docker rm -f project-test-worker || true
+            # Worker isolado
+            docker rm -f $APP_NAME-worker || true
             docker run -d \
-              --name project-test-worker \
+              --name $APP_NAME-worker \
+              --network web \
               --restart unless-stopped \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
-              -e APP_DEBUG=false \
-              --add-host=host.docker.internal:host-gateway \
               project-test worker

@@ -10,7 +10,9 @@ RUN apk add --no-cache \
     icu-dev \
     zip unzip \
     nginx \
+    && pecl install redis \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-enable redis \
     && docker-php-ext-install \
         pdo \
         pdo_mysql \

@@ -10,9 +10,7 @@ RUN apk add --no-cache \
     icu-dev \
     zip unzip \
     nginx \
-    && pecl install redis \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-enable redis \
     && docker-php-ext-install \
         pdo \
         pdo_mysql \
@@ -25,6 +23,10 @@ RUN apk add --no-cache \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/www.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/zz-docker.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/docker.conf || true
+
+RUN apk add --no-cache $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
 
 # Criar script de entrypoint base
 RUN cat <<'EOF' > /usr/local/bin/docker-php-entrypoint-base.sh

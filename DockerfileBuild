@@ -17,6 +17,7 @@ RUN apk add --no-cache \
         pdo_pgsql \
         mbstring \
         bcmath \
+        pcntl \
         gd \
         intl \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/www.conf || true \

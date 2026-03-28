@@ -26,7 +26,7 @@ FROM base AS app
 COPY --from=vendor /var/www/html/vendor /var/www/html/vendor
 COPY . .
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 # Garantir que a estrutura de pastas do storage existe
 RUN mkdir -p storage/framework/cache/data \

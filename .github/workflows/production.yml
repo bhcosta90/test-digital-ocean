@@ -65,9 +65,9 @@ jobs:
             docker network create web || true
 
             # Subir App isolado
-            docker rm -f $APP_NAME || true
+            docker rm -f $APP_NAME-app || true
             docker run -d \
-              --name $APP_NAME \
+              --name $APP_NAME-app \
               --network web \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
               project-test

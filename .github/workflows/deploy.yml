@@ -1,0 +1,116 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, sandbox, develop]
+
+env:
+  ENV_BASE: .env-${{ github.event.repository.name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Set image name
+        run: echo "IMAGE_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+
+      - name: Build image
+        run: docker build -t $IMAGE_NAME --target app .
+
+      - name: Save image
+        run: |
+          docker save $IMAGE_NAME -o image.tar
+          sudo chown $USER:$USER image.tar
+
+      - name: Debug
+        run: ls -lh image.tar
+
+      - name: Copy image to server
+        run: |
+          sudo apt-get update && sudo apt-get install -y rsync
+    
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+            image.tar \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/image.tar
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          timeout: 15s
+          script: |
+            set -e
+    
+            BRANCH=${{ github.ref_name }}
+            REPO=${{ github.event.repository.name }}
+    
+            APP_NAME="$REPO-$BRANCH"
+            IMAGE_NAME="$REPO"
+            ENV_BASE="${{ env.ENV_BASE }}"
+    
+            echo "🚀 Deploying $APP_NAME"
+    
+            docker load < /tmp/image.tar
+    
+            # Garantir network
+            docker network inspect web >/dev/null 2>&1 || docker network create web
+    
+            # Resolver ENV com fallback
+            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
+            DEFAULT_ENV="$HOME/${ENV_BASE}"
+    
+            if [ -f "$ENV_FILE" ]; then
+              echo "✅ Usando ENV específico: $ENV_FILE"
+              FINAL_ENV=$ENV_FILE
+            else
+              echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
+              FINAL_ENV=$DEFAULT_ENV
+            fi
+    
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado!"
+              exit 1
+            fi
+    
+            echo "📦 ENV carregado: $FINAL_ENV"
+    
+            PREFIX="${REPO}-${BRANCH}_"
+    
+            # --- APP ---
+            docker rm -f $APP_NAME >/dev/null 2>&1 || true
+            docker run -d \
+              --name $APP_NAME \
+              --network web \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX \
+              -e CACHE_PREFIX=${PREFIX}cache \
+              -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE_NAME
+    
+            # --- WORKER ---
+            docker rm -f ${APP_NAME}-worker >/dev/null 2>&1 || true
+            docker run -d \
+              --name ${APP_NAME}-worker \
+              --network web \
+              --restart unless-stopped \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX \
+              -e CACHE_PREFIX=${PREFIX}cache \
+              -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE_NAME worker
+    
+            echo "✅ Deploy finalizado: $APP_NAME"
+            exit 0

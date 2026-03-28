@@ -1,4 +1,4 @@
-FROM php:8.4-fpm-alpine as build
+FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache \
     bash \
@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     icu-dev \
     zip unzip \
     nginx \
+    $PHPIZE_DEPS \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
@@ -17,23 +18,30 @@ RUN apk add --no-cache \
         pdo_pgsql \
         mbstring \
         bcmath \
+        pcntl \
         gd \
         intl \
-    && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/www.conf || true \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    \
+    # 🔥 LIMPEZA (IMPORTANTE)
+    && apk del $PHPIZE_DEPS \
+    && rm -rf /tmp/* /var/cache/apk/* /usr/share/man /usr/src/php
+
+# Ajustes PHP-FPM
+RUN sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/www.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/zz-docker.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/docker.conf || true
 
-# Criar script de entrypoint base
+# Entrypoint
 RUN cat <<'EOF' > /usr/local/bin/docker-php-entrypoint-base.sh
 #!/bin/sh
 set -e
 
-# Criar pastas temporárias do Nginx caso não existam
 mkdir -p /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
 chown -R www-data:www-data /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
 chmod -R 775 /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
 
-# Se o PHP-FPM já estiver rodando, não tenta subir de novo (evita erro)
 if ! pgrep php-fpm > /dev/null; then
     echo "🚀 Iniciando PHP-FPM..."
     php-fpm -D || (echo "❌ Erro ao iniciar PHP-FPM" && exit 1)
@@ -48,7 +56,7 @@ RUN chmod +x /usr/local/bin/docker-php-entrypoint-base.sh
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Configuração NGINX base
+# Nginx
 RUN mkdir -p /etc/nginx/http.d && \
     rm -rf /etc/nginx/conf.d && \
     rm -f /etc/nginx/http.d/default.conf && \

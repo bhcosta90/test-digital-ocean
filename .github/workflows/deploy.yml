@@ -65,9 +65,7 @@ jobs:
               --restart unless-stopped \
               -v ~/.env-test-digital-ocean:/var/www/html/.env \
               --add-host=host.docker.internal:host-gateway \
-              -l traefik.enable=true \
-              -l traefik.http.routers.app.rule=Host('bhcosta90.dev.br') \
-              -l traefik.http.services.app.loadbalancer.server.port=80 \
+              -p 80:80 \
               project-test
 
             # Subir Worker

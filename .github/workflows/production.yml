@@ -67,7 +67,7 @@ jobs:
               -l traefik.enable=true \
               -l 'traefik.http.routers.app.rule=Host(`bhcosta90.dev.br`)' \
               -l traefik.http.services.app.loadbalancer.server.port=80 \
-              project-test-app
+              project-test
 
             # Subir Worker
             docker rm -f project-test-worker || true

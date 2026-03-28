@@ -38,6 +38,8 @@ RUN mkdir -p storage/framework/cache/data \
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
+ENTRYPOINT ["./entrypoint.sh"]
+
 # =========================
 # DEV (for local development)
 # =========================

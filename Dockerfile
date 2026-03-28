@@ -73,15 +73,11 @@ php artisan optimize || echo "⚠️ Alerta: optimize falhou, mas continuando...
 # Limpeza de caches antigos que podem travar a inicialização
 rm -rf /var/www/html/bootstrap/cache/*.php || echo "Não foi possível limpar cache do bootstrap"
 
-echo "🚀 Subindo Nginx..."
-# Testar config antes de subir
-nginx -t
+echo "✅ Tarefas do Laravel concluídas!"
 
-echo "✅ Container pronto e rodando!"
-
-# Usar exec para que o Nginx se torne o PID 1 e receba sinais corretamente
-# Isso substitui o processo do shell e mantém o container vivo
-exec nginx -g "daemon off;"
+# Chama o script base do DockerfileBuild para subir o Nginx em foreground
+echo "🚀 Delegando para o entrypoint base (Iniciando Nginx)..."
+exec /usr/local/bin/docker-php-entrypoint-base.sh
 EOF
 
 RUN chmod +x /entrypoint.sh

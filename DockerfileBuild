@@ -23,6 +23,28 @@ RUN apk add --no-cache \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/zz-docker.conf || true \
     && sed -i 's|listen = .*|listen = 127.0.0.1:9000|' /usr/local/etc/php-fpm.d/docker.conf || true
 
+# Criar script de entrypoint base
+RUN cat <<'EOF' > /usr/local/bin/docker-php-entrypoint-base.sh
+#!/bin/sh
+set -e
+
+# Criar pastas temporárias do Nginx caso não existam
+mkdir -p /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
+chown -R www-data:www-data /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
+chmod -R 775 /run/nginx /var/log/nginx /var/lib/nginx/tmp /var/lib/nginx/client_body
+
+# Se o PHP-FPM já estiver rodando, não tenta subir de novo (evita erro)
+if ! pgrep php-fpm > /dev/null; then
+    echo "🚀 Iniciando PHP-FPM..."
+    php-fpm -D || (echo "❌ Erro ao iniciar PHP-FPM" && exit 1)
+fi
+
+echo "🚀 Iniciando Nginx..."
+exec nginx -g "daemon off;"
+EOF
+
+RUN chmod +x /usr/local/bin/docker-php-entrypoint-base.sh
+
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -56,5 +78,7 @@ server {
     }
 }
 EOF
+
+ENTRYPOINT ["/usr/local/bin/docker-php-entrypoint-base.sh"]
 
 WORKDIR /var/www/html

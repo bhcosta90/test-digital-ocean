@@ -32,4 +32,4 @@ rm -rf /var/www/html/bootstrap/cache/*.php || echo "Não foi possível limpar ca
 
 echo "✅ Tarefas do Laravel concluídas!"
 
-exec php-fpm
+exec /usr/local/bin/docker-php-entrypoint-base.sh

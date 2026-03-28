@@ -79,6 +79,8 @@ server {
 }
 EOF
 
+EXPOSE 80
+
 ENTRYPOINT ["/usr/local/bin/docker-php-entrypoint-base.sh"]
 
 WORKDIR /var/www/html

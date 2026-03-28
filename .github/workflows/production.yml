@@ -63,7 +63,7 @@ jobs:
             docker load < /tmp/image.tar
 
             # Garantir network
-            docker network create web || true
+            docker network inspect web >/dev/null 2>&1 || docker network create web
 
             # Resolver ENV com fallback
             ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
@@ -85,20 +85,20 @@ jobs:
             echo "📦 ENV carregado: $FINAL_ENV"
 
             # --- APP ---
-            docker rm -f $APP_NAME || true
+            docker rm -f $APP_NAME >/dev/null 2>&1 || true
             docker run -d \
-              --name $APP_NAME \
-              --network web \
-              -v $FINAL_ENV:/var/www/html/.env \
-              $IMAGE_NAME
-
+            --name $APP_NAME \
+            --network web \
+            -v $FINAL_ENV:/var/www/html/.env \
+            $IMAGE_NAME
+            
             # --- WORKER ---
-            docker rm -f ${APP_NAME}-worker || true
+            docker rm -f ${APP_NAME}-worker >/dev/null 2>&1 || true
             docker run -d \
-              --name ${APP_NAME}-worker \
-              --network web \
-              --restart unless-stopped \
-              -v $FINAL_ENV:/var/www/html/.env \
-              $IMAGE_NAME worker
+            --name ${APP_NAME}-worker \
+            --network web \
+            --restart unless-stopped \
+            -v $FINAL_ENV:/var/www/html/.env \
+            $IMAGE_NAME worker
 
             echo "✅ Deploy finalizado: $APP_NAME"

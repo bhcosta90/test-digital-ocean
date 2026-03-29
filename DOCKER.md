@@ -68,7 +68,7 @@ newgrp docker
 # 🌐 2. Criar Network Docker
 
 ```bash
-docker network create web
+docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 ```
 
 ---

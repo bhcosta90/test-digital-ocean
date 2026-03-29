@@ -115,7 +115,9 @@ jobs:
             # No Swarm, o nome do serviço é usado como o hostname interno
             # O reverse proxy deve apontar para o serviço da app
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
-              echo -e "\n$DOMAIN {\n        reverse_proxy $APP_NAME-app:80\n}" >> "$CADDYFILE"
+              echo "$DOMAIN {" >> "$CADDYFILE"
+              echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
+              echo "}" >> "$CADDYFILE"
               docker restart caddy || true
             fi
             

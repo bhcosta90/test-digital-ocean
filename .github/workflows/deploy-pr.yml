@@ -201,3 +201,15 @@ jobs:
             docker restart caddy || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"
+
+      - name: Delete image tag from Docker Hub
+        run: |
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+          
+          if [ "$TOKEN" != "null" ]; then
+            echo "🗑️ Deletando tag $BRANCH_NAME do Docker Hub..."
+            curl -s -X DELETE -H "Authorization: JWT $TOKEN" https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}/tags/$BRANCH_NAME/
+            echo "✅ Tag removida com sucesso (ou já não existia)."
+          else
+            echo "❌ Falha ao obter token do Docker Hub. Verifique as credenciais."
+          fi

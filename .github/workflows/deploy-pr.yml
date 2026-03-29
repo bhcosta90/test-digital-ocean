@@ -79,6 +79,12 @@ jobs:
                 echo "🔄 Atualizando ${SERVICE_NAME}..."
                 docker service update --force \
                   --image ${IMAGE} \
+                  --env-rm REDIS_PREFIX \
+                  --env-rm CACHE_PREFIX \
+                  --env-rm SESSION_PREFIX \
+                  --env-add REDIS_PREFIX=${PREFIX} \
+                  --env-add CACHE_PREFIX=${PREFIX}cache \
+                  --env-add SESSION_PREFIX=${PREFIX}session \
                   --replicas ${SERVICE_REPLICAS} \
                   --update-order start-first \
                   ${SERVICE_NAME}
@@ -90,6 +96,9 @@ jobs:
                   --network web \
                   --host host.docker.internal:host-gateway \
                   --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --env REDIS_PREFIX=${PREFIX} \
+                  --env CACHE_PREFIX=${PREFIX}cache \
+                  --env SESSION_PREFIX=${PREFIX}session \
                   ${IMAGE} ${COMMAND}
               fi
             }

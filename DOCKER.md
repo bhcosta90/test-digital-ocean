@@ -123,10 +123,13 @@ sandbox.bhcosta90.dev.br {
 docker service create \
   --name caddy \
   --network web \
-  -p 80:80 \
-  -p 443:443 \
+  -p target=80,published=80,mode=host \
+  -p target=443,published=443,mode=host \
+  --constraint 'node.role==manager' \
   --mount type=bind,src=$(pwd)/Caddyfile,dst=/etc/caddy/Caddyfile \
   --mount type=volume,src=caddy_data,dst=/data \
+  --mount type=volume,src=caddy_config,dst=/config \
+  --restart-condition any \
   caddy:2
 ```
 

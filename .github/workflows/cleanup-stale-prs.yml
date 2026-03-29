@@ -5,6 +5,9 @@ on:
     - cron: '0 * * * *' # Roda a cada hora
   workflow_dispatch: # Permite rodar manualmente
 
+env:
+  DOMAIN_BASE: bhcosta90.dev.br
+
 jobs:
   cleanup-stale-prs:
     runs-on: ubuntu-latest
@@ -48,7 +51,7 @@ jobs:
                 # O formato é REPO-BRANCH-app ou REPO-BRANCH-worker
                 # Vamos tentar pegar a parte da branch
                 BRANCH_PART=$(echo $CONTAINER | sed "s/^${REPO}-//" | sed 's/-app$//' | sed 's/-worker$//')
-                DOMAIN="$BRANCH_PART.bhcosta90.dev.br"
+                DOMAIN="$BRANCH_PART.${{ env.DOMAIN_BASE }}"
                 
                 # Parar e remover container
                 docker rm -f $CONTAINER >/dev/null 2>&1 || true

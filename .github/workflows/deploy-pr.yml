@@ -6,6 +6,7 @@ on:
 
 env:
   ENV_BASE: .env-${{ github.event.repository.name }}
+  DOMAIN_BASE: bhcosta90.dev.br
 
 jobs:
   deploy:
@@ -79,7 +80,7 @@ jobs:
               $IMAGE worker
 
             # --- Caddy Update ---
-            DOMAIN="$BRANCH.bhcosta90.dev.br"
+            DOMAIN="$BRANCH.${{ env.DOMAIN_BASE }}"
             CADDYFILE="$HOME/Caddyfile"
             
             # Verifica se já existe a entrada, se não existir, adiciona
@@ -109,7 +110,7 @@ jobs:
             BRANCH="${{ env.BRANCH_NAME }}"
             REPO="${{ github.event.repository.name }}"
             APP_NAME="$REPO-$BRANCH"
-            DOMAIN="$BRANCH.bhcosta90.dev.br"
+            DOMAIN="$BRANCH.${{ env.DOMAIN_BASE }}"
             CADDYFILE="$HOME/Caddyfile"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
             IMAGE="$USER/$REPO:$BRANCH"

@@ -131,6 +131,7 @@ jobs:
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \
                   --env-rm HORIZON_PREFIX \
+                  --env-add REDIS_PREFIX=${PREFIX} \
                   --update-order start-first \
                   --update-parallelism 1 \
                   --update-delay 3s \
@@ -145,6 +146,7 @@ jobs:
                   --network web \
                   --host host.docker.internal:host-gateway \
                   --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --env REDIS_PREFIX=${PREFIX} \
                   ${IMAGE} ${COMMAND}
                 fi
             }

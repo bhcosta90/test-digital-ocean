@@ -143,7 +143,7 @@ jobs:
 
             # --- Caddy Update ---
             DOMAIN="http://${{ env.DOMAIN }}"
-            CADDYFILE="$HOME/Caddyfile"
+            CADDYFILE="$HOME/CaddyfilePreview"
             
             # No Swarm, o nome do serviço é usado como o hostname interno
             # O reverse proxy deve apontar para o serviço da app
@@ -151,7 +151,7 @@ jobs:
               echo "$DOMAIN {" >> "$CADDYFILE"
               echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
               echo "}" >> "$CADDYFILE"
-              docker restart caddy || true
+              docker service update --force caddy-preview || true
             fi
             
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
@@ -191,7 +191,7 @@ jobs:
             REPO="${{ github.event.repository.name }}"
             APP_NAME="$REPO-$BRANCH"
             DOMAIN="$BRANCH.preview.${{ env.DOMAIN_BASE }}"
-            CADDYFILE="$HOME/Caddyfile"
+            CADDYFILE="$HOME/CaddyfilePreview"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
             IMAGE="$USER/$REPO:$BRANCH"
 
@@ -206,7 +206,7 @@ jobs:
             # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
             # Vamos usar um sed mais robusto para remover o bloco
             sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
-            docker restart caddy || true
+            docker service update --force caddy-preview || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"
 

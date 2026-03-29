@@ -133,6 +133,14 @@ docker service create \
   caddy:2
 ```
 
+```bash
+docker service create \
+  --name caddy-preview \
+  -p 8080:8080 \
+  --mount type=bind,src=$(pwd)/CaddyfilePreview,dst=/etc/caddy/Caddyfile \
+  caddy:2
+```
+
 ---
 
 # 🔐 6. HTTPS automático

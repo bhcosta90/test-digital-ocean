@@ -62,7 +62,7 @@ jobs:
               exit 1
             fi
 
-            PREFIX="${REPO}-${BRANCH}_"
+            PREFIX="${REPO}_${BRANCH}_"
 
             # --- Containers ---
             docker rm -f $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true

@@ -67,28 +67,50 @@ jobs:
               exit 1
             fi
 
+            # --- Services ---
             PREFIX="${REPO}_${BRANCH}_"
+            
+            update_or_create_service() {
+              SERVICE_NAME=$1
+              COMMAND=$2
+            
+              if docker service inspect ${SERVICE_NAME} >/dev/null 2>&1; then
+                echo "🔄 Atualizando ${SERVICE_NAME}..."
+                docker service update --force \
+                  --image ${IMAGE} \
+                  --env-rm REDIS_PREFIX \
+                  --env-rm CACHE_PREFIX \
+                  --env-rm SESSION_PREFIX \
+                  --env-add REDIS_PREFIX=${PREFIX} \
+                  --env-add CACHE_PREFIX=${PREFIX}cache \
+                  --env-add SESSION_PREFIX=${PREFIX}session \
+                  ${SERVICE_NAME}
+              else
+                echo "🚀 Criando ${SERVICE_NAME}..."
+                docker service create \
+                  --name ${SERVICE_NAME} \
+                  --network web \
+                  --add-host host.docker.internal:host-gateway \
+                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --env REDIS_PREFIX=${PREFIX} \
+                  --env CACHE_PREFIX=${PREFIX}cache \
+                  --env SESSION_PREFIX=${PREFIX}session \
+                  ${IMAGE} ${COMMAND}
+              fi
+            }
 
-            # --- Containers ---
-            docker rm -f $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
+            # --- WORKER ---
+            update_or_create_service "${APP_NAME}-worker" "worker"
 
-            docker run -d --name $APP_NAME-app --network web \
-              --add-host=host.docker.internal:host-gateway \
-              -v $FINAL_ENV:/var/www/html/.env \
-              -e REDIS_PREFIX=$PREFIX -e CACHE_PREFIX=${PREFIX}cache -e SESSION_PREFIX=${PREFIX}session \
-              $IMAGE
-
-            docker run -d --name $APP_NAME-worker --network web \
-              --restart unless-stopped --add-host=host.docker.internal:host-gateway \
-              -v $FINAL_ENV:/var/www/html/.env \
-              -e REDIS_PREFIX=$PREFIX -e CACHE_PREFIX=${PREFIX}cache -e SESSION_PREFIX=${PREFIX}session \
-              $IMAGE worker
+            # --- APP ---
+            update_or_create_service "${APP_NAME}-app" ""
 
             # --- Caddy Update ---
             DOMAIN="${{ env.DOMAIN }}"
             CADDYFILE="$HOME/Caddyfile"
             
-            # Verifica se já existe a entrada, se não existir, adiciona
+            # No Swarm, o nome do serviço é usado como o hostname interno
+            # O reverse proxy deve apontar para o serviço da app
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
               echo -e "\n$DOMAIN {\n        reverse_proxy $APP_NAME-app:80\n}" >> "$CADDYFILE"
               docker restart caddy || true
@@ -137,8 +159,8 @@ jobs:
 
             echo "🧹 Cleaning up $APP_NAME..."
             
-            # Remover containers
-            docker rm -f $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
+            # Remover serviços (Swarm)
+            docker service rm $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
             
             # Remover imagem
             docker rmi $IMAGE >/dev/null 2>&1 || true

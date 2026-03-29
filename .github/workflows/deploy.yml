@@ -127,6 +127,10 @@ jobs:
                 docker service update --force \
                   --image ${IMAGE} \
                   --replicas ${SERVICE_REPLICAS} \
+                  --env-rm REDIS_PREFIX \
+                  --env-rm CACHE_PREFIX \
+                  --env-rm SESSION_PREFIX \
+                  --env-rm HORIZON_PREFIX \
                   --update-order start-first \
                   --update-parallelism 1 \
                   --update-delay 3s \

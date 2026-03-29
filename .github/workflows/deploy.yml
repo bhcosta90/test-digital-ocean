@@ -87,9 +87,6 @@ jobs:
             # Garantir network
             docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 
-            # Resolver ENV
-            DEFAULT_ENV="$HOME/${ENV_BASE}"
-
             PREFIX="${REPO}-${BRANCH}_"
 
             # Parse Replicas Config

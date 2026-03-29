@@ -5,7 +5,7 @@ on:
     branches: [main, sandbox, develop]
 
 env:
-  ENV_BASE: .env-${{ github.event.repository.name }}
+  ENV_BASE: .env
   REPLICAS_CONFIG: "main:1,sandbox:1"
 
 jobs:
@@ -89,23 +89,29 @@ jobs:
             docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 
             # Resolver ENV
-            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
-            DEFAULT_ENV="$HOME/${ENV_BASE}"
-
-            if [ -f "$ENV_FILE" ]; then
-              echo "✅ Usando ENV específico: $ENV_FILE"
-              FINAL_ENV=$ENV_FILE
-            else
-              echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
-              FINAL_ENV=$DEFAULT_ENV
+            # Verificar se existe arquivo específico da branch (ex: .env-main, .env-sandbox)
+            # Se não encontrar, tenta .env-production para a branch main
+            # Senão assume o .env padrão
+            
+            FINAL_ENV="$HOME/$REPO/.env-$BRANCH"
+            
+            # Caso especial: se branch for main e .env-main não existir, tentar .env-production
+            if [ "$BRANCH" == "main" ] && [ ! -f "$FINAL_ENV" ]; then
+                FINAL_ENV="$HOME/$REPO/.env-production"
             fi
 
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "❌ Nenhum arquivo .env encontrado!"
+              echo "⚠️ Arquivo específico não encontrado em $FINAL_ENV"
+              echo "🔍 Tentando .env padrão do repositório..."
+              FINAL_ENV="$HOME/$REPO/.env"
+            fi
+
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado em $HOME/$REPO/"
               exit 1
             fi
 
-            echo "📦 ENV carregado: $FINAL_ENV"
+            echo "✅ Usando ENV: $FINAL_ENV"
 
             PREFIX="${REPO}-${BRANCH}_"
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- {{ trim(file_get_contents(base_path('version.txt'))) }} -->
+<!-- {{ trim(file_get_contents(base_path('version.txt'))) }} on the enviroment {{ config('app.env') }} -->
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">

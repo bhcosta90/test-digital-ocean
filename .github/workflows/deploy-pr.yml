@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  ENV_BASE: .env-${{ github.event.repository.name }}
+  ENV_BASE: ${{ github.event.repository.name }}
   DOMAIN_BASE: bhcosta90.dev.br
 
 jobs:
@@ -29,8 +29,7 @@ jobs:
 
       - name: Update version.txt with commit hash
         run: |
-          echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7 > version.txt
-          date +" %Y-%m-%d %H:%M:%S" >> version.txt
+          echo "$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7) $(date +'%Y-%m-%d %H:%M:%S')" > version.txt
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -62,15 +61,32 @@ jobs:
             docker pull $IMAGE
             docker network inspect web >/dev/null 2>&1 || docker network create web
 
-            # Resolver ENV (tenta específico da branch ou usa o base do repo)
-            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
-            DEFAULT_ENV="$HOME/${ENV_BASE}"
-            [ -f "$ENV_FILE" ] && FINAL_ENV=$ENV_FILE || FINAL_ENV=$DEFAULT_ENV
+            # Resolver ENV
+            # Verificar se existe arquivo específico da branch (ex: .env-minha-branch)
+            # Senão assume o .env padrão do repositório
+            ENV_DIR="$HOME/${REPO}"
+            mkdir -p "$ENV_DIR"
+
+            # Enviar todas as env para a pasta (caso exista o secret ENV)
+            if [ -n "${{ secrets.ENV }}" ]; then
+              echo "📝 Gerando arquivo de env específico para PR: $ENV_DIR/.env-$BRANCH"
+              echo "${{ secrets.ENV }}" > "$ENV_DIR/.env-$BRANCH"
+            fi
+            
+            FINAL_ENV="$ENV_DIR/.env-$BRANCH"
             
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "❌ Nenhum arquivo .env encontrado!"
+              echo "⚠️ Arquivo específico não encontrado em $FINAL_ENV"
+              echo "🔍 Tentando .env padrão do repositório..."
+              FINAL_ENV="$ENV_DIR/.env"
+            fi
+            
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado em $ENV_DIR!"
               exit 1
             fi
+
+            echo "✅ Usando ENV: $FINAL_ENV"
 
             # --- Services ---
             PREFIX="${REPO}_${BRANCH}_"

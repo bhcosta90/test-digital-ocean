@@ -21,7 +21,7 @@ if [ "$1" = "worker" ]; then
     exec php artisan horizon:pause
 
     echo "⏳  Waiting for running jobs to finish..."
-    while php artisan horizon:status | grep -q running; do
+    while exec php artisan horizon:status | grep -q running; do
       echo "⏳  Still processing jobs... waiting 5s"
       sleep 5
     done
@@ -29,8 +29,8 @@ if [ "$1" = "worker" ]; then
     echo "♻️ Restarting Horizon..."
     exec php artisan horizon:terminate
 
-    echo "▶️ Resuming Horizon..."
-    exec php artisan horizon:continue
+    echo "▶️ Starting Horizon..."
+    exec php artisan horizon
 fi
 
 echo "🚀 Rodando migrations (pode demorar na primeira vez)..."

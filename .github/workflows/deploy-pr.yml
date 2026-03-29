@@ -1,0 +1,151 @@
+name: PR Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  ENV_BASE: .env-${{ github.event.repository.name }}
+  DOMAIN_BASE: bhcosta90.dev.br
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set branch name (sanitized)
+        run: |
+          BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
+          echo "DOMAIN=$BRANCH_NAME.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+
+      - name: Login no Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build da imagem
+        run: docker build -t $IMAGE --target app .
+
+      - name: Push da imagem
+        run: docker push $IMAGE
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          timeout: 60s
+          script: |
+            set -e
+            BRANCH="${{ env.BRANCH_NAME }}"
+            REPO="${{ github.event.repository.name }}"
+            USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            APP_NAME="$REPO-$BRANCH"
+            IMAGE="$USER/$REPO:$BRANCH"
+            ENV_BASE="${{ env.ENV_BASE }}"
+            
+            echo "🚀 Deploying PR: $APP_NAME"
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
+            docker pull $IMAGE
+            docker network inspect web >/dev/null 2>&1 || docker network create web
+
+            # Resolver ENV (tenta específico da branch ou usa o base do repo)
+            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
+            DEFAULT_ENV="$HOME/${ENV_BASE}"
+            [ -f "$ENV_FILE" ] && FINAL_ENV=$ENV_FILE || FINAL_ENV=$DEFAULT_ENV
+            
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado!"
+              exit 1
+            fi
+
+            PREFIX="${REPO}_${BRANCH}_"
+
+            # --- Containers ---
+            docker rm -f $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
+
+            docker run -d --name $APP_NAME-app --network web \
+              --add-host=host.docker.internal:host-gateway \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX -e CACHE_PREFIX=${PREFIX}cache -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE
+
+            docker run -d --name $APP_NAME-worker --network web \
+              --restart unless-stopped --add-host=host.docker.internal:host-gateway \
+              -v $FINAL_ENV:/var/www/html/.env \
+              -e REDIS_PREFIX=$PREFIX -e CACHE_PREFIX=${PREFIX}cache -e SESSION_PREFIX=${PREFIX}session \
+              $IMAGE worker
+
+            # --- Caddy Update ---
+            DOMAIN="${{ env.DOMAIN }}"
+            CADDYFILE="$HOME/Caddyfile"
+            
+            # Verifica se já existe a entrada, se não existir, adiciona
+            if ! grep -q "$DOMAIN" "$CADDYFILE"; then
+              echo -e "\n$DOMAIN {\n        reverse_proxy $APP_NAME-app:80\n}" >> "$CADDYFILE"
+              docker restart caddy || true
+            fi
+            
+            echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
+
+      - name: Comment on PR
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const domain = "${{ env.DOMAIN }}";
+            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [https://${domain}](https://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            })
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set branch name (sanitized)
+        run: |
+          BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Cleanup on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            BRANCH="${{ env.BRANCH_NAME }}"
+            REPO="${{ github.event.repository.name }}"
+            APP_NAME="$REPO-$BRANCH"
+            DOMAIN="$BRANCH.${{ env.DOMAIN_BASE }}"
+            CADDYFILE="$HOME/Caddyfile"
+            USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            IMAGE="$USER/$REPO:$BRANCH"
+
+            echo "🧹 Cleaning up $APP_NAME..."
+            
+            # Remover containers
+            docker rm -f $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
+            
+            # Remover imagem
+            docker rmi $IMAGE >/dev/null 2>&1 || true
+            
+            # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
+            # Vamos usar um sed mais robusto para remover o bloco
+            sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
+            docker restart caddy || true
+            
+            echo "✅ Cleanup finalizado para $APP_NAME"

@@ -154,10 +154,10 @@ jobs:
                 fi
             }
 
-            # --- APP ---
-            update_or_create_service "${APP_NAME}-app" ""
-            
             # --- WORKER ---
             update_or_create_service "${APP_NAME}-worker" "worker"
+
+            # --- APP ---
+            update_or_create_service "${APP_NAME}-app" ""
 
             echo "✅ Deploy finalizado: $APP_NAME"

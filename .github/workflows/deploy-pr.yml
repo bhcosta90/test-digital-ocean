@@ -122,7 +122,7 @@ jobs:
               echo "$DOMAIN {" >> "$CADDYFILE"
               echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
               echo "}" >> "$CADDYFILE"
-              docker restart caddy || true
+              docker service update --force caddy || true
             fi
             
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
@@ -177,6 +177,6 @@ jobs:
             # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
             # Vamos usar um sed mais robusto para remover o bloco
             sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
-            docker restart caddy || true
+            docker service update --force caddy || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"

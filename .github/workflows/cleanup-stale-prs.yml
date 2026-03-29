@@ -5,6 +5,9 @@ on:
     - cron: '0 * * * *' # Roda a cada hora
   workflow_dispatch: # Permite rodar manualmente
 
+env:
+  DOMAIN_BASE: bhcosta90.dev.br
+
 jobs:
   cleanup-stale-prs:
     runs-on: ubuntu-latest
@@ -17,7 +20,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             REPO="${{ github.event.repository.name }}"
-            CADDYFILE="/etc/caddy/Caddyfile"
+            CADDYFILE="$HOME/Caddyfile"
             
             echo "🔍 Checking for stale PR containers (older than 24h)..."
             
@@ -48,7 +51,7 @@ jobs:
                 # O formato é REPO-BRANCH-app ou REPO-BRANCH-worker
                 # Vamos tentar pegar a parte da branch
                 BRANCH_PART=$(echo $CONTAINER | sed "s/^${REPO}-//" | sed 's/-app$//' | sed 's/-worker$//')
-                DOMAIN="$BRANCH_PART.bhcosta90.dev.br"
+                DOMAIN="$BRANCH_PART.${{ env.DOMAIN_BASE }}"
                 
                 # Parar e remover container
                 docker rm -f $CONTAINER >/dev/null 2>&1 || true
@@ -56,7 +59,7 @@ jobs:
                 # Se for o container de app, remove do Caddy também
                 if [[ $CONTAINER == *"-app" ]]; then
                     echo "🌐 Removing $DOMAIN from Caddyfile"
-                    sudo sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
+                    sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
                     
                     # Tentar remover a imagem também
                     USER="${{ secrets.DOCKERHUB_USERNAME }}"

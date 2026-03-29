@@ -27,6 +27,11 @@ jobs:
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
           echo "DOMAIN=$BRANCH_NAME.preview.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
+      - name: Update version.txt with commit hash
+        run: |
+          echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7 > version.txt
+          date +" %Y-%m-%d %H:%M:%S" >> version.txt
+
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 

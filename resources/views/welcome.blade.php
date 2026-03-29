@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- {{ trim(file_get_contents(base_path('version.txt'))) }} -->
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">

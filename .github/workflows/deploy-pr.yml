@@ -73,11 +73,13 @@ jobs:
             update_or_create_service() {
               SERVICE_NAME=$1
               COMMAND=$2
+              SERVICE_REPLICAS=${3:-1}
             
               if docker service inspect ${SERVICE_NAME} >/dev/null 2>&1; then
                 echo "🔄 Atualizando ${SERVICE_NAME}..."
                 docker service update --force \
                   --image ${IMAGE} \
+                  --replicas ${SERVICE_REPLICAS} \
                   --env-rm REDIS_PREFIX \
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \
@@ -89,8 +91,9 @@ jobs:
                 echo "🚀 Criando ${SERVICE_NAME}..."
                 docker service create \
                   --name ${SERVICE_NAME} \
+                  --replicas ${SERVICE_REPLICAS} \
                   --network web \
-                  --add-host host.docker.internal:host-gateway \
+                  --host host.docker.internal:host-gateway \
                   --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
                   --env REDIS_PREFIX=${PREFIX} \
                   --env CACHE_PREFIX=${PREFIX}cache \
@@ -100,7 +103,7 @@ jobs:
             }
 
             # --- WORKER ---
-            update_or_create_service "${APP_NAME}-worker" "worker"
+            update_or_create_service "${APP_NAME}-worker" "worker" 1
 
             # --- APP ---
             update_or_create_service "${APP_NAME}-app" ""

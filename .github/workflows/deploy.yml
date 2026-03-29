@@ -116,8 +116,6 @@ jobs:
 
             echo "🔢 Replicas for $BRANCH: $REPLICAS"
 
-            echo "🔢 Replicas for $BRANCH: $REPLICAS"
-  
             update_or_create_service() {
               SERVICE_NAME=$1
               COMMAND=$2

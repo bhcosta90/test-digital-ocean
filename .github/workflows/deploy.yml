@@ -5,8 +5,8 @@ on:
     branches: [main, sandbox, develop]
 
 env:
-  ENV_BASE: ${{ github.event.repository.name }}
-  REPLICAS_CONFIG: "main:3,sandbox:2"
+  ENV_BASE: .env-${{ github.event.repository.name }}
+  REPLICAS_CONFIG: "main:1,sandbox:1"
 
 jobs:
   deploy:
@@ -34,7 +34,8 @@ jobs:
       # 🏷️ Update version.txt
       - name: Update version.txt with commit hash
         run: |
-          echo "$(echo ${{ github.sha }} | cut -c1-7) $(date +'%Y-%m-%d %H:%M:%S')" > version.txt
+          echo "${{ github.sha }}" | cut -c1-7 > version.txt
+          date +" %Y-%m-%d %H:%M:%S" >> version.txt
 
       # 🔐 Login Docker Hub
       - name: Login no Docker Hub
@@ -87,6 +88,25 @@ jobs:
             # Garantir network
             docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 
+            # Resolver ENV
+            ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
+            DEFAULT_ENV="$HOME/${ENV_BASE}"
+
+            if [ -f "$ENV_FILE" ]; then
+              echo "✅ Usando ENV específico: $ENV_FILE"
+              FINAL_ENV=$ENV_FILE
+            else
+              echo "⚠️ Usando ENV padrão: $DEFAULT_ENV"
+              FINAL_ENV=$DEFAULT_ENV
+            fi
+
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "❌ Nenhum arquivo .env encontrado!"
+              exit 1
+            fi
+
+            echo "📦 ENV carregado: $FINAL_ENV"
+
             PREFIX="${REPO}-${BRANCH}_"
 
             # Parse Replicas Config
@@ -134,7 +154,7 @@ jobs:
                   --replicas ${SERVICE_REPLICAS} \
                   --network web \
                   --host host.docker.internal:host-gateway \
-                  --mount type=bind,src=${ENV_BASE},dst=/var/www/html/ \
+                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
                   --env REDIS_PREFIX=${PREFIX} \
                   --env CACHE_PREFIX=${PREFIX}cache \
                   --env SESSION_PREFIX=${PREFIX}session \

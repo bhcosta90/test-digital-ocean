@@ -80,11 +80,11 @@ jobs:
 
             # --- Caddy Update ---
             DOMAIN="$BRANCH.bhcosta90.dev.br"
-            CADDYFILE="/etc/caddy/Caddyfile"
+            CADDYFILE="$HOME/Caddyfile"
             
             # Verifica se já existe a entrada, se não existir, adiciona
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
-              echo -e "\n$DOMAIN {\n        reverse_proxy $APP_NAME-app:80\n}" | sudo tee -a "$CADDYFILE" > /dev/null
+              echo -e "\n$DOMAIN {\n        reverse_proxy $APP_NAME-app:80\n}" >> "$CADDYFILE"
               docker restart caddy || true
             fi
             
@@ -110,7 +110,7 @@ jobs:
             REPO="${{ github.event.repository.name }}"
             APP_NAME="$REPO-$BRANCH"
             DOMAIN="$BRANCH.bhcosta90.dev.br"
-            CADDYFILE="/etc/caddy/Caddyfile"
+            CADDYFILE="$HOME/Caddyfile"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
             IMAGE="$USER/$REPO:$BRANCH"
 
@@ -124,7 +124,7 @@ jobs:
             
             # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
             # Vamos usar um sed mais robusto para remover o bloco
-            sudo sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
+            sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
             docker restart caddy || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"

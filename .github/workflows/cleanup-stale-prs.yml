@@ -17,7 +17,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             REPO="${{ github.event.repository.name }}"
-            CADDYFILE="/etc/caddy/Caddyfile"
+            CADDYFILE="$HOME/Caddyfile"
             
             echo "🔍 Checking for stale PR containers (older than 24h)..."
             
@@ -56,7 +56,7 @@ jobs:
                 # Se for o container de app, remove do Caddy também
                 if [[ $CONTAINER == *"-app" ]]; then
                     echo "🌐 Removing $DOMAIN from Caddyfile"
-                    sudo sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
+                    sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
                     
                     # Tentar remover a imagem também
                     USER="${{ secrets.DOCKERHUB_USERNAME }}"

@@ -133,7 +133,7 @@ jobs:
         with:
           script: |
             const domain = "${{ env.DOMAIN }}";
-            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [https://${domain}](https://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
+            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,

@@ -120,13 +120,13 @@ sandbox.bhcosta90.dev.br {
 # 🚀 5. Subir Caddy
 
 ```bash
-docker run -d \
+docker service create \
   --name caddy \
   --network web \
   -p 80:80 \
   -p 443:443 \
-  -v $(pwd)/Caddyfile:/etc/caddy/Caddyfile \
-  caddy
+  --mount type=bind,src=$(pwd)/Caddyfile,dst=/etc/caddy/Caddyfile \
+  caddy:2
 ```
 
 ---

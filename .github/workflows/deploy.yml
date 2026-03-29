@@ -79,7 +79,7 @@ jobs:
             docker image prune -a -f || true
 
             # Garantir network
-            docker network inspect web >/dev/null 2>&1 || docker network create web
+            docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 
             # Resolver ENV
             ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
@@ -102,31 +102,31 @@ jobs:
 
             PREFIX="${REPO}-${BRANCH}_"
 
-            # --- APP ---
-            docker rm -f $APP_NAME-app >/dev/null 2>&1 || true
-
-            docker run -d \
-              --name $APP_NAME-app \
+            docker service rm ${APP_NAME}-app >/dev/null 2>&1 || true
+  
+            docker service create \
+              --name ${APP_NAME}-app \
+              --replicas 2 \
               --network web \
-              --add-host=host.docker.internal:host-gateway \
-              -v $FINAL_ENV:/var/www/html/.env \
-              -e REDIS_PREFIX=$PREFIX \
-              -e CACHE_PREFIX=${PREFIX}cache \
-              -e SESSION_PREFIX=${PREFIX}session \
-              $IMAGE
-
+              --host host.docker.internal:host-gateway \
+              --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+              --env REDIS_PREFIX=${PREFIX} \
+              --env CACHE_PREFIX=${PREFIX}cache \
+              --env SESSION_PREFIX=${PREFIX}session \
+              ${IMAGE}
+            
+            
             # --- WORKER ---
-            docker rm -f ${APP_NAME}-worker >/dev/null 2>&1 || true
-
-            docker run -d \
+            docker service rm ${APP_NAME}-worker >/dev/null 2>&1 || true
+            
+            docker service create \
               --name ${APP_NAME}-worker \
               --network web \
-              --add-host=host.docker.internal:host-gateway \
-              --restart unless-stopped \
-              -v $FINAL_ENV:/var/www/html/.env \
-              -e REDIS_PREFIX=$PREFIX \
-              -e CACHE_PREFIX=${PREFIX}cache \
-              -e SESSION_PREFIX=${PREFIX}session \
-              $IMAGE worker
+              --host host.docker.internal:host-gateway \
+              --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+              --env REDIS_PREFIX=${PREFIX} \
+              --env CACHE_PREFIX=${PREFIX}cache \
+              --env SESSION_PREFIX=${PREFIX}session \
+              ${IMAGE} worker
 
             echo "✅ Deploy finalizado: $APP_NAME"

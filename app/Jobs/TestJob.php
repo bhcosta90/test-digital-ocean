@@ -19,6 +19,6 @@ class TestJob implements ShouldQueue
 
     public function handle(): void
     {
-        Log::info('Test Job executed successfully.');
+        Log::info('Test Job executed successfully on the ' . config('app.env') . ' environment.');
     }
 }

@@ -25,7 +25,7 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
-          echo "DOMAIN=$BRANCH_NAME.preview.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+          echo "DOMAIN=http://$BRANCH_NAME.preview.develop.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -55,7 +55,7 @@ jobs:
             echo "🚀 Deploying PR: $APP_NAME"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
             docker pull $IMAGE
-            docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
+            docker network inspect web >/dev/null 2>&1 || docker network create web
 
             # Resolver ENV (tenta específico da branch ou usa o base do repo)
             ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
@@ -93,7 +93,7 @@ jobs:
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."
                 docker service create \
-                  --name ${SERVICE_NAME} \
+                  --name ${SERVICE_NAME} \.
                   --replicas ${SERVICE_REPLICAS} \
                   --network web \
                   --host host.docker.internal:host-gateway \
@@ -120,13 +120,9 @@ jobs:
             # O reverse proxy deve apontar para o serviço da app
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
               echo "$DOMAIN {" >> "$CADDYFILE"
-              echo "        reverse_proxy $APP_NAME-app:80 {" >> "$CADDYFILE"
-              echo "                header_up Host {host}" >> "$CADDYFILE"
-              echo "                header_up X-Forwarded-Proto https" >> "$CADDYFILE"
-              echo "                header_up X-Forwarded-For {remote_host}" >> "$CADDYFILE"
-              echo "        }" >> "$CADDYFILE"
+              echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
               echo "}" >> "$CADDYFILE"
-              docker service update --force caddy || true
+              docker restart caddy || true
             fi
             
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
@@ -178,9 +174,9 @@ jobs:
             # Remover imagem
             docker rmi $IMAGE >/dev/null 2>&1 || true
             
-            # Remover do Caddyfile (bloco inteiro assumindo o padrão criado)
-            # Vamos usar um sed mais robusto para remover o bloco (âncora de início de linha ^)
-            sed -i "/^$DOMAIN {/,/}/d" "$CADDYFILE"
-            docker service update --force caddy || true
+            # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
+            # Vamos usar um sed mais robusto para remover o bloco
+            sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
+            docker restart caddy || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"

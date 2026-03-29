@@ -18,16 +18,16 @@ chmod -R 775 ./storage ./bootstrap/cache
 # Se o primeiro argumento for 'worker', rodar o worker e sair
 if [ "$1" = "worker" ]; then
     echo "⏸️ Pausing Horizon..."
-    exec php artisan horizon:pause
+    php artisan horizon:pause
 
     echo "⏳  Waiting for running jobs to finish..."
-    while exec php artisan horizon:status | grep -q running; do
+    while php artisan horizon:status | grep -q running; do
       echo "⏳  Still processing jobs... waiting 5s"
       sleep 5
     done
 
     echo "♻️ Restarting Horizon..."
-    exec php artisan horizon:terminate
+    php artisan horizon:terminate
 
     echo "▶️ Starting Horizon..."
     exec php artisan horizon

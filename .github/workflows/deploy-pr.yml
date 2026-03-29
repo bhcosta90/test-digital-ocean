@@ -25,7 +25,7 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
-          echo "DOMAIN=http://$BRANCH_NAME.preview.develop.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+          echo "DOMAIN=$BRANCH_NAME.preview.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -93,7 +93,7 @@ jobs:
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."
                 docker service create \
-                  --name ${SERVICE_NAME} \.
+                  --name ${SERVICE_NAME} \
                   --replicas ${SERVICE_REPLICAS} \
                   --network web \
                   --host host.docker.internal:host-gateway \
@@ -113,7 +113,7 @@ jobs:
             update_or_create_service "${APP_NAME}-app" ""
 
             # --- Caddy Update ---
-            DOMAIN="${{ env.DOMAIN }}"
+            DOMAIN="http://${{ env.DOMAIN }}"
             CADDYFILE="$HOME/Caddyfile"
             
             # No Swarm, o nome do serviço é usado como o hostname interno
@@ -133,7 +133,7 @@ jobs:
         with:
           script: |
             const domain = "${{ env.DOMAIN }}";
-            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [https://${domain}](https://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
+            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -161,7 +161,7 @@ jobs:
             BRANCH="${{ env.BRANCH_NAME }}"
             REPO="${{ github.event.repository.name }}"
             APP_NAME="$REPO-$BRANCH"
-            DOMAIN="$BRANCH.preview.develop.${{ env.DOMAIN_BASE }}"
+            DOMAIN="$BRANCH.preview.${{ env.DOMAIN_BASE }}"
             CADDYFILE="$HOME/Caddyfile"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
             IMAGE="$USER/$REPO:$BRANCH"

@@ -25,7 +25,7 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
-          echo "DOMAIN=$BRANCH_NAME.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+          echo "DOMAIN=$BRANCH_NAME.preview.develop.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -130,7 +130,7 @@ jobs:
             BRANCH="${{ env.BRANCH_NAME }}"
             REPO="${{ github.event.repository.name }}"
             APP_NAME="$REPO-$BRANCH"
-            DOMAIN="$BRANCH.${{ env.DOMAIN_BASE }}"
+            DOMAIN="$BRANCH.preview.develop.${{ env.DOMAIN_BASE }}"
             CADDYFILE="$HOME/Caddyfile"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
             IMAGE="$USER/$REPO:$BRANCH"

@@ -126,6 +126,7 @@ docker service create \
   -p 80:80 \
   -p 443:443 \
   --mount type=bind,src=$(pwd)/Caddyfile,dst=/etc/caddy/Caddyfile \
+  --mount type=volume,src=caddy_data,dst=/data \
   caddy:2
 ```
 

@@ -122,6 +122,9 @@ jobs:
               docker service update \
                 --image ${IMAGE} \
                 --replicas ${REPLICAS} \
+                --env-rm REDIS_PREFIX=${PREFIX} \
+                --env-rm CACHE_PREFIX=${PREFIX}cache \
+                --env-rm SESSION_PREFIX=${PREFIX}session \
                 --env-add REDIS_PREFIX=${PREFIX} \
                 --env-add CACHE_PREFIX=${PREFIX}cache \
                 --env-add SESSION_PREFIX=${PREFIX}session \
@@ -151,6 +154,9 @@ jobs:
             
               docker service update \
                 --image ${IMAGE} \
+                --env-rm REDIS_PREFIX=${PREFIX} \
+                --env-rm CACHE_PREFIX=${PREFIX}cache \
+                --env-rm SESSION_PREFIX=${PREFIX}session \
                 --env-add REDIS_PREFIX=${PREFIX} \
                 --env-add CACHE_PREFIX=${PREFIX}cache \
                 --env-add SESSION_PREFIX=${PREFIX}session \

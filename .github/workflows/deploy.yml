@@ -134,7 +134,8 @@ jobs:
                   --env-add REDIS_PREFIX=${PREFIX} \
                   --env-add CACHE_PREFIX=${PREFIX}cache \
                   --env-add SESSION_PREFIX=${PREFIX}session \
-                  --env-add HORIZON_PREFIX=${PREFIX}horizon:            
+                  --env-add HORIZON_PREFIX=${PREFIX}horizon: \
+                  --update-order start-first \
                   --update-parallelism 1 \
                   --update-delay 3s \
                   ${SERVICE_NAME}
@@ -151,7 +152,7 @@ jobs:
                   --env REDIS_PREFIX=${PREFIX} \
                   --env CACHE_PREFIX=${PREFIX}cache \
                   --env SESSION_PREFIX=${PREFIX}session \
-                  --env HORIZON_PREFIX=${PREFIX}horizon:
+                  --env HORIZON_PREFIX=${PREFIX}horizon: \
                   ${IMAGE} ${COMMAND}
                 fi
             }

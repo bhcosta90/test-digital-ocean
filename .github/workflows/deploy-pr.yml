@@ -88,6 +88,7 @@ jobs:
                   --env-add CACHE_PREFIX=${PREFIX}cache \
                   --env-add SESSION_PREFIX=${PREFIX}session \
                   --env-add HORIZON_PREFIX=${PREFIX}horizon: \
+                  --update-order start-first \
                   ${SERVICE_NAME}
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."

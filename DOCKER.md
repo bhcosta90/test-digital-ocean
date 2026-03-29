@@ -117,7 +117,7 @@ sandbox.bhcosta90.dev.br {
 
 ---
 
-# 🚀 5. Subir Caddy
+# 🚀 5. Subir Caddy (Caddyfile)
 
 ```bash
 docker service create \
@@ -132,6 +132,8 @@ docker service create \
   --restart-condition any \
   caddy:2
 ```
+
+# 🚀 5.1. Subir Caddy Preview  (CaddyfilePreview)
 
 ```bash
 docker service create \

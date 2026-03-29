@@ -34,8 +34,7 @@ jobs:
       # 🏷️ Update version.txt
       - name: Update version.txt with commit hash
         run: |
-          echo "${{ github.sha }}" | cut -c1-7 > version.txt
-          date +" %Y-%m-%d %H:%M:%S" >> version.txt
+          echo "$(echo ${{ github.sha }} | cut -c1-7) $(date +'%Y-%m-%d %H:%M:%S')" > version.txt
 
       # 🔐 Login Docker Hub
       - name: Login no Docker Hub

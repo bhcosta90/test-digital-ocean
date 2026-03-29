@@ -226,6 +226,16 @@ return [
                 'maxProcesses' => 3,
             ],
         ],
+        'sandbox' => [
+            'supervisor-1' => [
+                'maxProcesses' => 3,
+            ],
+        ],
+        'develop' => [
+            'supervisor-1' => [
+                'maxProcesses' => 3,
+            ],
+        ],
     ],
 
     /*

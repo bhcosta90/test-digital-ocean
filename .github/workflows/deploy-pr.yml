@@ -61,25 +61,32 @@ jobs:
             docker pull $IMAGE
             docker network inspect web >/dev/null 2>&1 || docker network create web
 
-            # Resolver ENV (tenta específico da branch ou usa o base do repo dentro da pasta do repositório)
+            # Resolver ENV
+            # Verificar se existe arquivo específico da branch (ex: .env-minha-branch)
+            # Senão assume o .env padrão do repositório
             ENV_DIR="$HOME/${REPO}"
             mkdir -p "$ENV_DIR"
 
             # Enviar todas as env para a pasta (caso exista o secret ENV)
             if [ -n "${{ secrets.ENV }}" ]; then
-              echo "📝 Gerando arquivos de env específicos para PR na pasta..."
-              # No Swarm, podemos enviar para .env-branch e o service lê desse mount
+              echo "📝 Gerando arquivo de env específico para PR: $ENV_DIR/.env-$BRANCH"
               echo "${{ secrets.ENV }}" > "$ENV_DIR/.env-$BRANCH"
             fi
             
-            ENV_FILE_NAME=".env-$BRANCH"
-            DEFAULT_ENV_NAME=".env"
-            [ -f "$ENV_DIR/$ENV_FILE_NAME" ] && FINAL_ENV_NAME=$ENV_FILE_NAME || FINAL_ENV_NAME=$DEFAULT_ENV_NAME
+            FINAL_ENV="$ENV_DIR/.env-$BRANCH"
             
-            if [ ! -f "$ENV_DIR/$FINAL_ENV_NAME" ]; then
+            if [ ! -f "$FINAL_ENV" ]; then
+              echo "⚠️ Arquivo específico não encontrado em $FINAL_ENV"
+              echo "🔍 Tentando .env padrão do repositório..."
+              FINAL_ENV="$ENV_DIR/.env"
+            fi
+            
+            if [ ! -f "$FINAL_ENV" ]; then
               echo "❌ Nenhum arquivo .env encontrado em $ENV_DIR!"
               exit 1
             fi
+
+            echo "✅ Usando ENV: $FINAL_ENV"
 
             # --- Services ---
             PREFIX="${REPO}_${BRANCH}_"
@@ -111,7 +118,7 @@ jobs:
                   --replicas ${SERVICE_REPLICAS} \
                   --network web \
                   --host host.docker.internal:host-gateway \
-                  --mount type=bind,src=${ENV_DIR},dst=/var/www/html/envs \
+                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
                   --env REDIS_PREFIX=${PREFIX} \
                   --env CACHE_PREFIX=${PREFIX}cache \
                   --env SESSION_PREFIX=${PREFIX}session \
@@ -194,3 +201,15 @@ jobs:
             docker restart caddy || true
             
             echo "✅ Cleanup finalizado para $APP_NAME"
+
+      - name: Delete image tag from Docker Hub
+        run: |
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+          
+          if [ "$TOKEN" != "null" ]; then
+            echo "🗑️ Deletando tag $BRANCH_NAME do Docker Hub..."
+            curl -s -X DELETE -H "Authorization: JWT $TOKEN" https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}/tags/$BRANCH_NAME/
+            echo "✅ Tag removida com sucesso (ou já não existia)."
+          else
+            echo "❌ Falha ao obter token do Docker Hub. Verifique as credenciais."
+          fi

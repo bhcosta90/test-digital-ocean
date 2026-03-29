@@ -90,13 +90,13 @@ jobs:
 
             # Resolver ENV
             # Verificar se existe arquivo específico da branch (ex: .env-main, .env-sandbox)
-            # Se não encontrar, tenta .env-production para a branch main
+            # Se não encontrar, tenta .env-production para as branches main ou master
             # Senão assume o .env padrão
             
             FINAL_ENV="$HOME/$REPO/.env-$BRANCH"
             
-            # Caso especial: se branch for main e .env-main não existir, tentar .env-production
-            if [ "$BRANCH" == "main" ] && [ ! -f "$FINAL_ENV" ]; then
+            # Caso especial: se branch for main ou master e .env-main/.env-master não existir, tentar .env-production
+            if [[ "$BRANCH" =~ ^(main|master)$ ]] && [ ! -f "$FINAL_ENV" ]; then
                 FINAL_ENV="$HOME/$REPO/.env-production"
             fi
 

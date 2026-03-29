@@ -67,6 +67,13 @@ jobs:
             ENV_DIR="$HOME/${REPO}"
             mkdir -p "$ENV_DIR"
 
+            echo "📂 Debugging variables:"
+            echo "   HOME: $HOME"
+            echo "   REPO: $REPO"
+            echo "   BRANCH: $BRANCH"
+            echo "   Checking files in: $ENV_DIR/"
+            ls -la "$ENV_DIR/" || echo "❌ Directory $ENV_DIR/ not found!"
+
             # Enviar todas as env para a pasta (caso exista o secret ENV)
             if [ -n "${{ secrets.ENV }}" ]; then
               echo "📝 Gerando arquivo de env específico para PR: $ENV_DIR/.env-$BRANCH"
@@ -76,8 +83,8 @@ jobs:
             FINAL_ENV="$ENV_DIR/.env-$BRANCH"
             
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "⚠️ Arquivo específico não encontrado em $FINAL_ENV"
-              echo "🔍 Tentando .env padrão do repositório..."
+              echo "⚠️ Specific file not found at $FINAL_ENV"
+              echo "🔍 Trying default .env from repository..."
               FINAL_ENV="$ENV_DIR/.env"
             fi
             
@@ -100,6 +107,7 @@ jobs:
                 echo "🔄 Atualizando ${SERVICE_NAME}..."
                 docker service update --force \
                   --image ${IMAGE} \
+                  --mount-add type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
                   --env-rm REDIS_PREFIX \
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \

@@ -93,16 +93,26 @@ jobs:
             # Se não encontrar, tenta .env-production para as branches main ou master
             # Senão assume o .env padrão
             
+            echo "📂 Debugging variables:"
+            echo "   HOME: $HOME"
+            echo "   REPO: $REPO"
+            echo "   BRANCH: $BRANCH"
+            echo "   Checking files in: $HOME/$REPO/"
+            ls -la "$HOME/$REPO/" || echo "❌ Directory $HOME/$REPO/ not found!"
+
             FINAL_ENV="$HOME/$REPO/.env-$BRANCH"
             
             # Caso especial: se branch for main ou master e .env-main/.env-master não existir, tentar .env-production
-            if [[ "$BRANCH" =~ ^(main|master)$ ]] && [ ! -f "$FINAL_ENV" ]; then
-                FINAL_ENV="$HOME/$REPO/.env-production"
+            if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+                if [ ! -f "$FINAL_ENV" ]; then
+                    echo "🔍 Trying .env-production for main/master..."
+                    FINAL_ENV="$HOME/$REPO/.env-production"
+                fi
             fi
 
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "⚠️ Arquivo específico não encontrado em $FINAL_ENV"
-              echo "🔍 Tentando .env padrão do repositório..."
+              echo "⚠️ Specific file not found at $FINAL_ENV"
+              echo "🔍 Trying default .env from repository..."
               FINAL_ENV="$HOME/$REPO/.env"
             fi
 
@@ -139,6 +149,7 @@ jobs:
                 docker service update --force \
                   --image ${IMAGE} \
                   --replicas ${SERVICE_REPLICAS} \
+                  --mount-add type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
                   --env-rm REDIS_PREFIX \
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \

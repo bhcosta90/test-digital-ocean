@@ -135,7 +135,7 @@ jobs:
                   --env-add CACHE_PREFIX=${PREFIX}cache \
                   --env-add SESSION_PREFIX=${PREFIX}session \
                   --update-parallelism 1 \
-                  --update-delay 5s \
+                  --update-delay 3s \
                   ${SERVICE_NAME}
             
               else

@@ -25,7 +25,7 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
-          echo "DOMAIN=http://$BRANCH_NAME.preview.develop.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+          echo "DOMAIN=$BRANCH_NAME.preview.develop.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -118,8 +118,8 @@ jobs:
             
             # No Swarm, o nome do serviço é usado como o hostname interno
             # O reverse proxy deve apontar para o serviço da app
-            if ! grep -q "$DOMAIN" "$CADDYFILE"; then
-              echo "$DOMAIN {" >> "$CADDYFILE"
+            if ! grep -q "http://$DOMAIN" "$CADDYFILE"; then
+              echo "http://$DOMAIN {" >> "$CADDYFILE"
               echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
               echo "}" >> "$CADDYFILE"
               docker restart caddy || true
@@ -133,7 +133,7 @@ jobs:
         with:
           script: |
             const domain = "${{ env.DOMAIN }}";
-            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
+            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [https://${domain}](https://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,

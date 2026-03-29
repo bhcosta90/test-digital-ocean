@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, closed]
 
+permissions:
+  pull-requests: write
+  contents: read
+
 env:
   ENV_BASE: .env-${{ github.event.repository.name }}
   DOMAIN_BASE: bhcosta90.dev.br
@@ -32,6 +36,7 @@ jobs:
         run: docker push $IMAGE
 
       - name: Deploy on server
+        id: deploy-on-server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -89,7 +94,23 @@ jobs:
               docker restart caddy || true
             fi
             
+            echo "DOMAIN=$DOMAIN" >> $GITHUB_OUTPUT
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
+
+      - name: Comment on PR
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const domain = "${{ steps.deploy-on-server.outputs.DOMAIN }}";
+            const message = `🚀 **Ambiente de Preview Disponível!**\n\nO deploy da sua branch foi realizado com sucesso.\n🔗 Link: [https://${domain}](https://${domain})\n\n_Este ambiente será removido automaticamente quando o PR for fechado ou após 24h de inatividade._`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            })
 
   cleanup:
     if: github.event.action == 'closed'

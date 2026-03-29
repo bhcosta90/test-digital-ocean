@@ -55,7 +55,7 @@ jobs:
             echo "🚀 Deploying PR: $APP_NAME"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
             docker pull $IMAGE
-            docker network inspect web >/dev/null 2>&1 || docker network create web
+            docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 
             # Resolver ENV (tenta específico da branch ou usa o base do repo)
             ENV_FILE="$HOME/${ENV_BASE}-$BRANCH"
@@ -93,7 +93,7 @@ jobs:
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."
                 docker service create \
-                  --name ${SERVICE_NAME} \.
+                  --name ${SERVICE_NAME} \
                   --replicas ${SERVICE_REPLICAS} \
                   --network web \
                   --host host.docker.internal:host-gateway \

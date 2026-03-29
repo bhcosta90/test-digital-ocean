@@ -1,6 +1,6 @@
 FROM php:8.4-fpm-alpine
 
-RUN apk add --no-cache --virtual .build-deps \
+RUN apk add --no-cache \
     bash \
     libpng-dev \
     libjpeg-turbo-dev \

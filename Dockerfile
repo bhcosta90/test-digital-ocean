@@ -19,11 +19,25 @@ RUN composer install \
     --optimize-autoloader
 
 # =========================
+# ASSETS (NODE)
+# =========================
+FROM node:20-alpine AS node_builder
+
+WORKDIR /var/www/html
+
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+# =========================
 # APP
 # =========================
 FROM base AS app
 
 COPY --from=vendor /var/www/html/vendor /var/www/html/vendor
+COPY --from=node_builder /var/www/html/public/build /var/www/html/public/build
 COPY . .
 
 RUN chmod +x ./entrypoint.sh

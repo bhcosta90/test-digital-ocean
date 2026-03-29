@@ -31,6 +31,12 @@ jobs:
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}" >> $GITHUB_ENV
           echo "IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest" >> $GITHUB_ENV
 
+      # 🏷️ Update version.txt
+      - name: Update version.txt with commit hash
+        run: |
+          echo "${{ github.sha }}" | cut -c1-7 > version.txt
+          date +" %Y-%m-%d %H:%M:%S" >> version.txt
+
       # 🔐 Login Docker Hub
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin

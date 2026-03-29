@@ -10,7 +10,7 @@ permissions:
 
 env:
   ENV_BASE: ${{ github.event.repository.name }}
-  DOMAIN_BASE: bhcosta90.dev.br
+  DOMAIN_BASE: bhcosta90.dev.br:8080
 
 jobs:
   deploy:
@@ -142,7 +142,7 @@ jobs:
             update_or_create_service "${APP_NAME}-app" ""
 
             # --- Caddy Update ---
-            DOMAIN="http://${{ env.DOMAIN }}:8080"
+            DOMAIN="http://${{ env.DOMAIN }}"
             CADDYFILE="$HOME/CaddyfilePreview"
             
             # No Swarm, o nome do serviço é usado como o hostname interno
@@ -161,7 +161,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const domain = "${{ env.DOMAIN }}:8080";
+            const domain = "${{ env.DOMAIN }}";
             const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
             
             github.rest.issues.createComment({

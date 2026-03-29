@@ -25,6 +25,7 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
+          echo "DOMAIN=$BRANCH_NAME.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -36,7 +37,6 @@ jobs:
         run: docker push $IMAGE
 
       - name: Deploy on server
-        id: deploy-on-server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -85,7 +85,7 @@ jobs:
               $IMAGE worker
 
             # --- Caddy Update ---
-            DOMAIN="$BRANCH.${{ env.DOMAIN_BASE }}"
+            DOMAIN="${{ env.DOMAIN }}"
             CADDYFILE="$HOME/Caddyfile"
             
             # Verifica se já existe a entrada, se não existir, adiciona
@@ -94,7 +94,6 @@ jobs:
               docker restart caddy || true
             fi
             
-            echo "DOMAIN=$DOMAIN" >> $GITHUB_OUTPUT
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
 
       - name: Comment on PR
@@ -102,7 +101,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const domain = "${{ steps.deploy-on-server.outputs.DOMAIN }}";
+            const domain = "${{ env.DOMAIN }}";
             const message = `🚀 **Ambiente de Preview Disponível!**\n\nO deploy da sua branch foi realizado com sucesso.\n🔗 Link: [https://${domain}](https://${domain})\n\n_Este ambiente será removido automaticamente quando o PR for fechado ou após 24h de inatividade._`;
             
             github.rest.issues.createComment({

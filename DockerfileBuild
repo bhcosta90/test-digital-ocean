@@ -1,13 +1,12 @@
 FROM php:8.4-fpm-alpine
 
-RUN apk add --no-cache \
+RUN apk add --no-cache --virtual .build-deps \
     bash \
     libpng-dev \
     libjpeg-turbo-dev \
     freetype-dev \
     libpq-dev \
     oniguruma-dev \
-    icu-dev \
     zip unzip \
     nginx \
     $PHPIZE_DEPS \
@@ -20,11 +19,8 @@ RUN apk add --no-cache \
         bcmath \
         pcntl \
         gd \
-        intl \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    \
-    # 🔥 LIMPEZA (IMPORTANTE)
     && apk del $PHPIZE_DEPS \
     && rm -rf /tmp/* /var/cache/apk/* /usr/share/man /usr/src/php
 

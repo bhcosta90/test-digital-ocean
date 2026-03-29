@@ -116,65 +116,46 @@ jobs:
 
             echo "🔢 Replicas for $BRANCH: $REPLICAS"
 
-            if docker service inspect ${APP_NAME}-app >/dev/null 2>&1; then
-              echo "🔄 Atualizando APP..."
+            update_or_create_service() {
+              SERVICE_NAME=$1
+              COMMAND=$2
             
-              docker service update \
-                --image ${IMAGE} \
-                --replicas ${REPLICAS} \
-                --env-rm REDIS_PREFIX=${PREFIX} \
-                --env-rm CACHE_PREFIX=${PREFIX}cache \
-                --env-rm SESSION_PREFIX=${PREFIX}session \
-                --env-add REDIS_PREFIX=${PREFIX} \
-                --env-add CACHE_PREFIX=${PREFIX}cache \
-                --env-add SESSION_PREFIX=${PREFIX}session \
-                --update-parallelism 1 \
-                --update-delay 5s \
-                ${APP_NAME}-app
-              
-            else
-              echo "🚀 Criando APP..."
+              if docker service inspect ${SERVICE_NAME} >/dev/null 2>&1; then
+                echo "🔄 Atualizando ${SERVICE_NAME}..."
+                
+                docker service update --force \
+                  --image ${IMAGE} \
+                  --replicas ${REPLICAS} \
+                  --env-rm REDIS_PREFIX \
+                  --env-rm CACHE_PREFIX \
+                  --env-rm SESSION_PREFIX \
+                  --env-add REDIS_PREFIX=${PREFIX} \
+                  --env-add CACHE_PREFIX=${PREFIX}cache \
+                  --env-add SESSION_PREFIX=${PREFIX}session \
+                  --update-parallelism 1 \
+                  --update-delay 3s \
+                  ${SERVICE_NAME}
             
-              docker service create \
-                --name ${APP_NAME}-app \
-                --replicas ${REPLICAS} \
-                --network web \
-                --host host.docker.internal:host-gateway \
-                --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
-                --env REDIS_PREFIX=${PREFIX} \
-                --env CACHE_PREFIX=${PREFIX}cache \
-                --env SESSION_PREFIX=${PREFIX}session \
-                ${IMAGE}
-              fi
-              
+              else
+                echo "🚀 Criando ${SERVICE_NAME}..."
+                
+                docker service create \
+                  --name ${SERVICE_NAME} \
+                  --replicas ${REPLICAS} \
+                  --network web \
+                  --host host.docker.internal:host-gateway \
+                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --env REDIS_PREFIX=${PREFIX} \
+                  --env CACHE_PREFIX=${PREFIX}cache \
+                  --env SESSION_PREFIX=${PREFIX}session \
+                  ${IMAGE} ${COMMAND}
+                fi
+            }
+
             # --- WORKER ---
-            if docker service inspect ${APP_NAME}-worker >/dev/null 2>&1; then
-              echo "🔄 Atualizando WORKER..."
-            
-              docker service update \
-                --image ${IMAGE} \
-                --env-rm REDIS_PREFIX=${PREFIX} \
-                --env-rm CACHE_PREFIX=${PREFIX}cache \
-                --env-rm SESSION_PREFIX=${PREFIX}session \
-                --env-add REDIS_PREFIX=${PREFIX} \
-                --env-add CACHE_PREFIX=${PREFIX}cache \
-                --env-add SESSION_PREFIX=${PREFIX}session \
-                --update-parallelism 1 \
-                --update-delay 5s \
-                ${APP_NAME}-worker
-              
-            else
-              echo "🚀 Criando WORKER..."
-            
-              docker service create \
-                --name ${APP_NAME}-worker \
-                --network web \
-                --host host.docker.internal:host-gateway \
-                --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
-                --env REDIS_PREFIX=${PREFIX} \
-                --env CACHE_PREFIX=${PREFIX}cache \
-                --env SESSION_PREFIX=${PREFIX}session \
-                ${IMAGE} worker
-            fi
+            update_or_create_service "${APP_NAME}-worker" "worker"
+
+            # --- APP ---
+            update_or_create_service "${APP_NAME}-app" ""
 
             echo "✅ Deploy finalizado: $APP_NAME"

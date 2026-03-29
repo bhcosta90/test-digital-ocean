@@ -117,7 +117,7 @@ sandbox.bhcosta90.dev.br {
 
 ---
 
-# 🚀 5. Subir Caddy
+# 🚀 5. Subir Caddy (Caddyfile)
 
 ```bash
 docker service create \
@@ -130,6 +130,18 @@ docker service create \
   --mount type=volume,src=caddy_data,dst=/data \
   --mount type=volume,src=caddy_config,dst=/config \
   --restart-condition any \
+  caddy:2
+```
+
+# 🚀 5.1. Subir Caddy Preview  (CaddyfilePreview)
+
+```bash
+docker service create \
+  --name caddy-preview \
+  --network web \
+  --publish published=8080,target=8080 \
+  --constraint 'node.role==manager' \
+  --mount type=bind,src=$(pwd)/CaddyfilePreview,dst=/etc/caddy/Caddyfile \
   caddy:2
 ```
 

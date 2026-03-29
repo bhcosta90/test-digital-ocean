@@ -161,7 +161,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const domain = "${{ env.DOMAIN }}";
+            const domain = "${{ env.DOMAIN }}:8080";
             const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
             
             github.rest.issues.createComment({

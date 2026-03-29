@@ -136,7 +136,9 @@ docker service create \
 ```bash
 docker service create \
   --name caddy-preview \
-  -p 8080:8080 \
+  --network web \
+  --publish published=8080,target=8080 \
+  --constraint 'node.role==manager' \
   --mount type=bind,src=$(pwd)/CaddyfilePreview,dst=/etc/caddy/Caddyfile \
   caddy:2
 ```

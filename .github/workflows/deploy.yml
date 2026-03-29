@@ -6,6 +6,7 @@ on:
 
 env:
   ENV_BASE: .env-${{ github.event.repository.name }}
+  REPLICAS_CONFIG: "main:3,sandbox:2"
 
 jobs:
   deploy:
@@ -102,11 +103,24 @@ jobs:
 
             PREFIX="${REPO}-${BRANCH}_"
 
+            # Parse Replicas Config
+            REPLICAS=1
+            IFS=',' read -ra CONFIG_ARRAY <<< "${{ env.REPLICAS_CONFIG }}"
+            for item in "${CONFIG_ARRAY[@]}"; do
+              IFS=':' read -ra PAIR <<< "$item"
+              if [[ "${PAIR[0]}" == "$BRANCH" ]]; then
+                REPLICAS="${PAIR[1]}"
+                break
+              fi
+            done
+
+            echo "🔢 Replicas for $BRANCH: $REPLICAS"
+
             docker service rm ${APP_NAME}-app >/dev/null 2>&1 || true
   
             docker service create \
               --name ${APP_NAME}-app \
-              --replicas 2 \
+              --replicas ${REPLICAS} \
               --network web \
               --host host.docker.internal:host-gateway \
               --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \

@@ -7,7 +7,7 @@ name: Deploy
 
 env:
   ENV_BASE: .env
-  REPLICAS_CONFIG: "main:1,sandbox:1"
+  REPLICAS_CONFIG: "main:3,sandbox:2"
 
 jobs:
   deploy:

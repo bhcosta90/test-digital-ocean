@@ -68,6 +68,7 @@ newgrp docker
 # 🌐 2. Criar Network Docker
 
 ```bash
+docker swarm init --advertise-addr 
 docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
 ```
 
@@ -96,12 +97,16 @@ Ou wildcard:
 Crie um arquivo:
 
 ```bash
-nano Caddyfile
+vi Caddyfile
 ```
 
 ## 🔹 Exemplo com múltiplos ambientes
 
 ```caddyfile
+{
+    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
 bhcosta90.dev.br {
     reverse_proxy project-test-main:80
 }
@@ -118,6 +123,26 @@ sandbox.bhcosta90.dev.br {
 ---
 
 # 🚀 5. Subir Caddy (Caddyfile)
+
+vi CaddyfilePreview
+
+```caddyfile
+{
+    auto_https off
+}
+
+bhcosta90.dev.br {
+    reverse_proxy project-test-main:80
+}
+
+develop.bhcosta90.dev.br {
+    reverse_proxy project-test-develop:80
+}
+
+sandbox.bhcosta90.dev.br {
+    reverse_proxy project-test-sandbox:80
+}
+```
 
 ```bash
 docker service create \
@@ -168,10 +193,10 @@ O Caddy automaticamente:
 Crie os arquivos:
 
 ```bash
-nano ~/.env-project-test
-nano ~/.env-project-test-main
-nano ~/.env-project-test-develop
-nano ~/.env-project-test-sandbox
+mkdir -p ~/${NAME_REPOSITORY}/
+vi ~/${NAME_REPOSITORY}/.env-main
+vi ~/${NAME_REPOSITORY}/.env-develop
+vi ~/${NAME_REPOSITORY}/.env-sandbox
 ```
 
 ---

@@ -263,7 +263,6 @@ docker run -d \
   -v ~/.env-project-test-main:/var/www/html/.env \
   project-test worker
 ```
-
 ---
 
 # 🔄 10. Atualizar Caddy após mudanças

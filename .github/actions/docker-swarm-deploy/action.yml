@@ -73,10 +73,12 @@ runs:
               --env-rm CACHE_PREFIX \
               --env-rm SESSION_PREFIX \
               --env-rm HORIZON_PREFIX \
+              --env-rm APP_NAME \
               --env-add REDIS_PREFIX="${PREFIX}" \
               --env-add CACHE_PREFIX="${PREFIX}cache" \
               --env-add SESSION_PREFIX="${PREFIX}session" \
               --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
+              --env-add APP_NAME="${SERVICE_NAME}" \
               --replicas "${SERVICE_REPLICAS}" \
               --update-order start-first \
               "${SERVICE_NAME}"
@@ -92,5 +94,6 @@ runs:
               --env CACHE_PREFIX="${PREFIX}cache" \
               --env SESSION_PREFIX="${PREFIX}session" \
               --env HORIZON_PREFIX="${PREFIX}horizon:" \
+              --env APP_NAME="${SERVICE_NAME}" \
               "${IMAGE}" ${COMMAND}
           fi

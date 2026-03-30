@@ -108,7 +108,7 @@ jobs:
             $HOME/${{ github.event.repository.name }}/.env-${{
             github.ref_name }}
           prefix: >-
-            ${{ github.event.repository.name }}-${{ github.ref_name }}_
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-
           command: "worker"
           replicas: "1"
 
@@ -125,7 +125,7 @@ jobs:
             $HOME/${{ github.event.repository.name }}/.env-${{
             github.ref_name }}
           prefix: >-
-            ${{ github.event.repository.name }}-${{ github.ref_name }}_
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-
           replicas: ${{ steps.replicas.outputs.count }}
 
       - name: Finalize Deploy

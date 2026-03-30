@@ -40,12 +40,13 @@ runs:
         username: ${{ inputs.user }}
         key: ${{ inputs.key }}
         script: |
-          SERVICE_NAME="${{ inputs.service_name }}"
-          IMAGE="${{ inputs.image }}"
-          ENV_FILE="${{ inputs.env_file }}"
-          PREFIX="${{ inputs.prefix }}"
-          COMMAND="${{ inputs.command }}"
-          SERVICE_REPLICAS="${{ inputs.replicas }}"
+          # Sanitizar entradas removendo quebras de linha extras do YAML
+          SERVICE_NAME=$(echo "${{ inputs.service_name }}" | xargs)
+          IMAGE=$(echo "${{ inputs.image }}" | xargs)
+          ENV_FILE=$(echo "${{ inputs.env_file }}" | xargs)
+          PREFIX=$(echo "${{ inputs.prefix }}" | xargs)
+          COMMAND=$(echo "${{ inputs.command }}" | xargs)
+          SERVICE_REPLICAS=$(echo "${{ inputs.replicas }}" | xargs)
 
           # Verificar se o arquivo .env existe no servidor
           if [ ! -f "$ENV_FILE" ]; then

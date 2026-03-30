@@ -103,7 +103,7 @@ jobs:
             $HOME/${{ github.event.repository.name }}/.env-${{
             env.BRANCH_NAME }}
           prefix: >-
-            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}_
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-
           command: "worker"
           replicas: "1"
 
@@ -120,7 +120,7 @@ jobs:
             $HOME/${{ github.event.repository.name }}/.env-${{
             env.BRANCH_NAME }}
           prefix: >-
-            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}_
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-
           replicas: "1"
 
       - name: Update Caddy

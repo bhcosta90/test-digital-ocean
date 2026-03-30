@@ -1,6 +1,7 @@
+---
 name: Deploy
 
-on:
+"on":
   push:
     branches: [main, sandbox, develop]
 
@@ -13,49 +14,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 📥 Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔐 SSH
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      # 🏷️ Nome da imagem
       - name: Set image name
         run: |
-          echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}" >> $GITHUB_ENV
-          echo "IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest" >> $GITHUB_ENV
+          DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          REPO="${{ github.event.repository.name }}"
+          TAG="${{ github.ref_name }}"
+          echo "IMAGE=$DOCKER_USER/$REPO:$TAG" >> $GITHUB_ENV
 
-      # 🏷️ Update version.txt
-      - name: Update version.txt with commit hash
+      - name: Update version.txt
         run: |
           echo "${{ github.sha }}" | cut -c1-7 > version.txt
           date +" %Y-%m-%d %H:%M:%S" >> version.txt
 
-      # 🔐 Login Docker Hub
-      - name: Login no Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Login to Docker Hub
+        uses: ./.github/actions/docker-setup
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 🏗️ Build
-      - name: Build da imagem
-        run: docker build -t $IMAGE --target app .
+      - name: Build and Push image
+        uses: ./.github/actions/docker-build-push
+        with:
+          image_name: ${{ env.IMAGE }}
+          push_latest: 'true'
 
-      # 🏷️ Tag latest (opcional mas recomendado)
-      - name: Tag latest
-        run: docker tag $IMAGE $IMAGE_LATEST
-
-      # 📤 Push
-      - name: Push da imagem
-        run: |
-          docker push $IMAGE
-          docker push $IMAGE_LATEST
-
-      # 🚀 Deploy no servidor
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -66,9 +51,9 @@ jobs:
           script: |
             set -e
 
-            BRANCH=${{ github.ref_name }}
-            REPO=${{ github.event.repository.name }}
-            USER=${{ secrets.DOCKERHUB_USERNAME }}
+            BRANCH="${{ github.ref_name }}"
+            REPO="${{ github.event.repository.name }}"
+            USER="${{ secrets.DOCKERHUB_USERNAME }}"
 
             APP_NAME="$REPO-$BRANCH"
             IMAGE="$USER/$REPO:$BRANCH"
@@ -77,32 +62,29 @@ jobs:
             echo "🚀 Deploying $APP_NAME"
 
             # 🔑 Login no Docker Hub (no servidor)
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
+              docker login -u "$USER" --password-stdin
 
             echo "📦 Baixando imagem..."
-            docker pull $IMAGE
+            docker pull "$IMAGE"
 
             # 🔥 Limpeza opcional (evita encher disco)
             docker image prune -a -f || true
 
             # Garantir network
-            docker network inspect web >/dev/null 2>&1 || docker network create --driver overlay web
+            docker network inspect web >/dev/null 2>&1 || \
+              docker network create --driver overlay web
 
             # Resolver ENV
-            # Verificar se existe arquivo específico da branch (ex: .env-main, .env-sandbox)
-            # Se não encontrar, tenta .env-production para as branches main ou master
+            # Verificar se existe arquivo específico da branch
+            # (ex: .env-main, .env-sandbox)
+            # Se não encontrar, tenta .env-production para main ou master
             # Senão assume o .env padrão
-            
-            echo "📂 Debugging variables:"
-            echo "   HOME: $HOME"
-            echo "   REPO: $REPO"
-            echo "   BRANCH: $BRANCH"
-            echo "   Checking files in: $HOME/$REPO/"
-            ls -la "$HOME/$REPO/" || echo "❌ Directory $HOME/$REPO/ not found!"
 
             FINAL_ENV="$HOME/$REPO/.env-$BRANCH"
-            
-            # Caso especial: se branch for main ou master e .env-main/.env-master não existir, tentar .env-production
+
+            # Caso especial: se branch for main ou master e
+            # .env-main/.env-master não existir, tentar .env-production
             if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
                 if [ ! -f "$FINAL_ENV" ]; then
                     echo "🔍 Trying .env-production for main/master..."
@@ -142,41 +124,42 @@ jobs:
               SERVICE_NAME=$1
               COMMAND=$2
               SERVICE_REPLICAS=${3:-$REPLICAS}
-            
-              if docker service inspect ${SERVICE_NAME} >/dev/null 2>&1; then
+
+              if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
                 echo "🔄 Atualizando ${SERVICE_NAME}..."
-                
+
                 docker service update --force \
-                  --image ${IMAGE} \
-                  --replicas ${SERVICE_REPLICAS} \
-                  --mount-add type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --image "${IMAGE}" \
+                  --replicas "${SERVICE_REPLICAS}" \
+                  --mount-add \
+                    type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
                   --env-rm REDIS_PREFIX \
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \
                   --env-rm HORIZON_PREFIX \
-                  --env-add REDIS_PREFIX=${PREFIX} \
-                  --env-add CACHE_PREFIX=${PREFIX}cache \
-                  --env-add SESSION_PREFIX=${PREFIX}session \
-                  --env-add HORIZON_PREFIX=${PREFIX}horizon: \
+                  --env-add REDIS_PREFIX="${PREFIX}" \
+                  --env-add CACHE_PREFIX="${PREFIX}cache" \
+                  --env-add SESSION_PREFIX="${PREFIX}session" \
+                  --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
                   --update-order start-first \
                   --update-parallelism 1 \
                   --update-delay 3s \
-                  ${SERVICE_NAME}
-            
+                  "${SERVICE_NAME}"
+
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."
-                
+
                 docker service create \
-                  --name ${SERVICE_NAME} \
-                  --replicas ${SERVICE_REPLICAS} \
+                  --name "${SERVICE_NAME}" \
+                  --replicas "${SERVICE_REPLICAS}" \
                   --network web \
                   --host host.docker.internal:host-gateway \
-                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
-                  --env REDIS_PREFIX=${PREFIX} \
-                  --env CACHE_PREFIX=${PREFIX}cache \
-                  --env SESSION_PREFIX=${PREFIX}session \
-                  --env HORIZON_PREFIX=${PREFIX}horizon: \
-                  ${IMAGE} ${COMMAND}
+                  --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+                  --env REDIS_PREFIX="${PREFIX}" \
+                  --env CACHE_PREFIX="${PREFIX}cache" \
+                  --env SESSION_PREFIX="${PREFIX}session" \
+                  --env HORIZON_PREFIX="${PREFIX}horizon:" \
+                  "${IMAGE}" "${COMMAND}"
                 fi
             }
 

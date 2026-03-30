@@ -1,12 +1,13 @@
+---
 name: PR Auto Cleanup (24h)
 
-on:
+"on":
   schedule:
-    - cron: '0 * * * *' # Roda a cada hora
-  workflow_dispatch: # Permite rodar manualmente
+    - cron: '0 * * * *'  # Roda a cada hora
+  workflow_dispatch:  # Permite rodar manualmente
 
 env:
-  DOMAIN_BASE: bhcosta90.dev.br
+  DOMAIN_BASE: bhcosta90.dev.br:8080
 
 jobs:
   cleanup-stale-prs:
@@ -20,53 +21,57 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             REPO="${{ github.event.repository.name }}"
-            CADDYFILE="$HOME/Caddyfile"
-            
-            echo "🔍 Checking for stale PR containers (older than 24h)..."
-            
-            # Listar containers que começam com o nome do repo e não são as branches fixas (main, develop, sandbox)
+            CADDYFILE="$HOME/CaddyfilePreview"
+
+            echo "🔍 Checking for stale PR services (older than 24h)..."
+
+            # Listar serviços que começam com o nome do repo e
+            # não são as branches fixas (main, sandbox, develop)
             # E que foram criados há mais de 24 horas
-            STALE_CONTAINERS=$(docker ps -a --format '{{.Names}} {{.CreatedAt}}' | grep "^${REPO}-" | grep -vE "${REPO}-(main|develop|sandbox)" | while read line; do
-                NAME=$(echo $line | awk '{print $1}')
-                CREATED_AT=$(echo $line | awk '{print $2" "$3" "$4}')
-                # Converter para timestamp (funciona em linux comum)
+            STALE_SERVICES=$(docker service ls --format '{{.Name}}' | \
+              grep "^${REPO}-" | grep -vE "${REPO}-(main|sandbox|develop)" | \
+              while read -r SERVICE; do
+                # Pegar data de criação do serviço
+                CREATED_AT=$(docker service inspect "$SERVICE" \
+                  --format '{{.CreatedAt}}')
+                # Converter para timestamp
                 CREATE_TS=$(date -d "$CREATED_AT" +%s)
                 NOW_TS=$(date +%s)
                 DIFF=$(( (NOW_TS - CREATE_TS) / 3600 ))
-                
-                if [ $DIFF -ge 24 ]; then
-                    echo $NAME
+
+                if [ "$DIFF" -ge 24 ]; then
+                    echo "$SERVICE"
                 fi
             done)
 
-            if [ -z "$STALE_CONTAINERS" ]; then
-                echo "✅ No stale containers found."
+            if [ -z "$STALE_SERVICES" ]; then
+                echo "✅ No stale services found."
                 exit 0
             fi
 
-            for CONTAINER in $STALE_CONTAINERS; do
-                echo "🧹 Cleaning up stale container: $CONTAINER"
-                
-                # Extrair o nome da branch/PR do nome do container
+            for SERVICE in $STALE_SERVICES; do
+                echo "🧹 Cleaning up stale service: $SERVICE"
+
+                # Extrair o nome da branch/PR do nome do serviço
                 # O formato é REPO-BRANCH-app ou REPO-BRANCH-worker
-                # Vamos tentar pegar a parte da branch
-                BRANCH_PART=$(echo $CONTAINER | sed "s/^${REPO}-//" | sed 's/-app$//' | sed 's/-worker$//')
-                DOMAIN="$BRANCH_PART.${{ env.DOMAIN_BASE }}"
-                
-                # Parar e remover container
-                docker rm -f $CONTAINER >/dev/null 2>&1 || true
-                
-                # Se for o container de app, remove do Caddy também
-                if [[ $CONTAINER == *"-app" ]]; then
+                BRANCH_PART=$(echo "$SERVICE" | sed "s/^${REPO}-//" | \
+                  sed 's/-app$//' | sed 's/-worker$//')
+                DOMAIN="$BRANCH_PART.preview.${{ env.DOMAIN_BASE }}"
+
+                # Remover serviço
+                docker service rm "$SERVICE" >/dev/null 2>&1 || true
+
+                # Se for o serviço de app, remove do Caddy também
+                # e tenta limpar imagem
+                if [[ $SERVICE == *"-app" ]]; then
                     echo "🌐 Removing $DOMAIN from Caddyfile"
                     sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
-                    
-                    # Tentar remover a imagem também
+
                     USER="${{ secrets.DOCKERHUB_USERNAME }}"
                     IMAGE="$USER/$REPO:$BRANCH_PART"
-                    docker rmi $IMAGE >/dev/null 2>&1 || true
+                    docker rmi "$IMAGE" >/dev/null 2>&1 || true
                 fi
             done
 
-            docker restart caddy || true
+            docker service update --force caddy-preview || true
             echo "✅ Cleanup cycle finished."

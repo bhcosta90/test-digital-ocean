@@ -1,6 +1,7 @@
+---
 name: PR Deploy
 
-on:
+"on":
   pull_request:
     types: [opened, synchronize, closed]
 
@@ -14,31 +15,39 @@ env:
 
 jobs:
   deploy:
-    if: github.event.action != 'closed' && github.event.pull_request.draft == false
+    if: |
+      github.event.action != 'closed' &&
+      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set branch name (sanitized)
+      - name: Set environment variables
         run: |
           BRANCH_NAME=$(echo "${{ github.head_ref }}" | sed 's/\//-/g')
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-          echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:$BRANCH_NAME" >> $GITHUB_ENV
-          echo "DOMAIN=$BRANCH_NAME.preview.${{ env.DOMAIN_BASE }}" >> $GITHUB_ENV
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          echo "IMAGE=$IMAGE/$REPO_NAME:$BRANCH_NAME" >> $GITHUB_ENV
+          DOMAIN="$BRANCH_NAME.preview.${{ env.DOMAIN_BASE }}"
+          echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
 
-      - name: Update version.txt with commit hash
+      - name: Update version.txt
         run: |
-          echo "$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7) $(date +'%Y-%m-%d %H:%M:%S')" > version.txt
+          SHA=$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)
+          echo "$SHA $(date +'%Y-%m-%d %H:%M:%S')" > version.txt
 
-      - name: Login no Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Login to Docker Hub
+        uses: ./.github/actions/docker-setup
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build da imagem
-        run: docker build -t $IMAGE --target app .
-
-      - name: Push da imagem
-        run: docker push $IMAGE
+      - name: Build and Push image
+        uses: ./.github/actions/docker-build-push
+        with:
+          image_name: ${{ env.IMAGE }}
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
@@ -55,39 +64,36 @@ jobs:
             APP_NAME="$REPO-$BRANCH"
             IMAGE="$USER/$REPO:$BRANCH"
             ENV_BASE="${{ env.ENV_BASE }}"
-            
+
             echo "🚀 Deploying PR: $APP_NAME"
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$USER" --password-stdin
-            docker pull $IMAGE
-            docker network inspect web >/dev/null 2>&1 || docker network create web
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
+              docker login -u "$USER" --password-stdin
+            docker pull "$IMAGE"
+            docker network inspect web >/dev/null 2>&1 || \
+              docker network create web
 
             # Resolver ENV
-            # Verificar se existe arquivo específico da branch (ex: .env-minha-branch)
+            # Verificar se existe arquivo específico da branch
+            # (ex: .env-minha-branch)
             # Senão assume o .env padrão do repositório
             ENV_DIR="$HOME/${REPO}"
             mkdir -p "$ENV_DIR"
 
-            echo "📂 Debugging variables:"
-            echo "   HOME: $HOME"
-            echo "   REPO: $REPO"
-            echo "   BRANCH: $BRANCH"
-            echo "   Checking files in: $ENV_DIR/"
-            ls -la "$ENV_DIR/" || echo "❌ Directory $ENV_DIR/ not found!"
-
             # Enviar todas as env para a pasta (caso exista o secret ENV)
             if [ -n "${{ secrets.ENV }}" ]; then
-              echo "📝 Gerando arquivo de env específico para PR: $ENV_DIR/.env-$BRANCH"
+              echo "📝 Gerando arquivo de env específico para PR: \
+                $ENV_DIR/.env-$BRANCH"
               echo "${{ secrets.ENV }}" > "$ENV_DIR/.env-$BRANCH"
             fi
-            
+
             FINAL_ENV="$ENV_DIR/.env-$BRANCH"
-            
+
             if [ ! -f "$FINAL_ENV" ]; then
               echo "⚠️ Specific file not found at $FINAL_ENV"
               echo "🔍 Trying default .env from repository..."
               FINAL_ENV="$ENV_DIR/.env"
             fi
-            
+
             if [ ! -f "$FINAL_ENV" ]; then
               echo "❌ Nenhum arquivo .env encontrado em $ENV_DIR!"
               exit 1
@@ -97,41 +103,42 @@ jobs:
 
             # --- Services ---
             PREFIX="${REPO}_${BRANCH}_"
-            
+
             update_or_create_service() {
               SERVICE_NAME=$1
               COMMAND=$2
               SERVICE_REPLICAS=${3:-1}
-            
-              if docker service inspect ${SERVICE_NAME} >/dev/null 2>&1; then
+
+              if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
                 echo "🔄 Atualizando ${SERVICE_NAME}..."
                 docker service update --force \
-                  --image ${IMAGE} \
-                  --mount-add type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
+                  --image "${IMAGE}" \
+                  --mount-add \
+                    type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
                   --env-rm REDIS_PREFIX \
                   --env-rm CACHE_PREFIX \
                   --env-rm SESSION_PREFIX \
                   --env-rm HORIZON_PREFIX \
-                  --env-add REDIS_PREFIX=${PREFIX} \
-                  --env-add CACHE_PREFIX=${PREFIX}cache \
-                  --env-add SESSION_PREFIX=${PREFIX}session \
-                  --env-add HORIZON_PREFIX=${PREFIX}horizon: \
-                  --replicas ${SERVICE_REPLICAS} \
+                  --env-add REDIS_PREFIX="${PREFIX}" \
+                  --env-add CACHE_PREFIX="${PREFIX}cache" \
+                  --env-add SESSION_PREFIX="${PREFIX}session" \
+                  --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
+                  --replicas "${SERVICE_REPLICAS}" \
                   --update-order start-first \
-                  ${SERVICE_NAME}
+                  "${SERVICE_NAME}"
               else
                 echo "🚀 Criando ${SERVICE_NAME}..."
                 docker service create \
-                  --name ${SERVICE_NAME} \
-                  --replicas ${SERVICE_REPLICAS} \
+                  --name "${SERVICE_NAME}" \
+                  --replicas "${SERVICE_REPLICAS}" \
                   --network web \
                   --host host.docker.internal:host-gateway \
-                  --mount type=bind,src=${FINAL_ENV},dst=/var/www/html/.env \
-                  --env REDIS_PREFIX=${PREFIX} \
-                  --env CACHE_PREFIX=${PREFIX}cache \
-                  --env SESSION_PREFIX=${PREFIX}session \
-                  --env HORIZON_PREFIX=${PREFIX}horizon: \
-                  ${IMAGE} ${COMMAND}
+                  --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+                  --env REDIS_PREFIX="${PREFIX}" \
+                  --env CACHE_PREFIX="${PREFIX}cache" \
+                  --env SESSION_PREFIX="${PREFIX}session" \
+                  --env HORIZON_PREFIX="${PREFIX}horizon:" \
+                  "${IMAGE}" "${COMMAND}"
               fi
             }
 
@@ -144,7 +151,7 @@ jobs:
             # --- Caddy Update ---
             DOMAIN="http://${{ env.DOMAIN }}"
             CADDYFILE="$HOME/CaddyfilePreview"
-            
+
             # No Swarm, o nome do serviço é usado como o hostname interno
             # O reverse proxy deve apontar para o serviço da app
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
@@ -153,7 +160,7 @@ jobs:
               echo "}" >> "$CADDYFILE"
               docker service update --force caddy-preview || true
             fi
-            
+
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
 
       - name: Comment on PR
@@ -162,8 +169,14 @@ jobs:
         with:
           script: |
             const domain = "${{ env.DOMAIN }}";
-            const message = `🚀 **Preview Environment Available!**\n\nThe deploy of your branch has been successfully completed.\n🔗 Link: [http://${domain}](http://${domain})\n\n_This environment will be automatically removed when the PR is closed or after 24h of inactivity._`;
-            
+            const message = `🚀 **Preview Environment Available!**
+
+            The deploy of your branch has been successfully completed.
+            🔗 Link: [http://${domain}](http://${domain})
+
+            _This environment will be automatically removed when the PR \
+            is closed or after 24h of inactivity._`;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -196,28 +209,39 @@ jobs:
             IMAGE="$USER/$REPO:$BRANCH"
 
             echo "🧹 Cleaning up $APP_NAME..."
-            
+
             # Remover serviços (Swarm)
-            docker service rm $APP_NAME-app $APP_NAME-worker >/dev/null 2>&1 || true
-            
+            docker service rm "$APP_NAME-app" "$APP_NAME-worker" \
+              >/dev/null 2>&1 || true
+
             # Remover imagem
-            docker rmi $IMAGE >/dev/null 2>&1 || true
-            
-            # Remover do Caddyfile (bloco inteiro de 3 linhas assumindo o padrão criado)
+            docker rmi "$IMAGE" >/dev/null 2>&1 || true
+
+            # Remover do Caddyfile
+            # (bloco inteiro de 3 linhas assumindo o padrão criado)
             # Vamos usar um sed mais robusto para remover o bloco
             sed -i "/$DOMAIN {/,/}/d" "$CADDYFILE"
             docker service update --force caddy-preview || true
-            
+
             echo "✅ Cleanup finalizado para $APP_NAME"
 
       - name: Delete image tag from Docker Hub
         run: |
-          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
-          
+          LOGIN_DATA='{"username": "${{ secrets.DOCKERHUB_USERNAME }}", \
+            "password": "${{ secrets.DOCKERHUB_TOKEN }}"}'
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST \
+            -d "$LOGIN_DATA" https://hub.docker.com/v2/users/login/ | \
+            jq -r .token)
+
           if [ "$TOKEN" != "null" ]; then
             echo "🗑️ Deletando tag $BRANCH_NAME do Docker Hub..."
-            curl -s -X DELETE -H "Authorization: JWT $TOKEN" https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}/tags/$BRANCH_NAME/
+            USER_NAME="${{ secrets.DOCKERHUB_USERNAME }}"
+            REPO_NAME="${{ github.event.repository.name }}"
+            REPO_PATH="$USER_NAME/$REPO_NAME"
+            curl -s -X DELETE -H "Authorization: JWT $TOKEN" \
+              "https://hub.docker.com/v2/repositories/$REPO_PATH/tags/$BRANCH_NAME/"
             echo "✅ Tag removida com sucesso (ou já não existia)."
           else
-            echo "❌ Falha ao obter token do Docker Hub. Verifique as credenciais."
+            echo "❌ Falha ao obter token do Docker Hub. \
+              Verifique as credenciais."
           fi

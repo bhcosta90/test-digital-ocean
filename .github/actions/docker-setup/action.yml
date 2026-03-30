@@ -1,0 +1,18 @@
+---
+name: 'Docker Setup'
+description: 'Login to Docker Hub'
+inputs:
+  username:
+    description: 'Docker Hub Username'
+    required: true
+  token:
+    description: 'Docker Hub Token'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Login to Docker Hub
+      shell: bash
+      run: |
+        echo "${{ inputs.token }}" | \
+          docker login -u "${{ inputs.username }}" --password-stdin

@@ -1,0 +1,80 @@
+---
+name: 'Docker Swarm Deploy'
+description: 'Update or create a Docker service in Swarm'
+inputs:
+  host:
+    description: 'Server host'
+    required: true
+  user:
+    description: 'SSH username'
+    required: true
+  key:
+    description: 'SSH key'
+    required: true
+  service_name:
+    description: 'The name of the service'
+    required: true
+  image:
+    description: 'Docker image'
+    required: true
+  env_file:
+    description: 'Path to the .env file on the server'
+    required: true
+  prefix:
+    description: 'Prefix for environment variables (Redis, Cache, etc.)'
+    required: true
+  command:
+    description: 'Command to run'
+    default: ''
+  replicas:
+    description: 'Number of replicas'
+    default: '1'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Deploy Service via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.user }}
+        key: ${{ inputs.key }}
+        script: |
+          SERVICE_NAME="${{ inputs.service_name }}"
+          IMAGE="${{ inputs.image }}"
+          FINAL_ENV="${{ inputs.env_file }}"
+          PREFIX="${{ inputs.prefix }}"
+          COMMAND="${{ inputs.command }}"
+          SERVICE_REPLICAS="${{ inputs.replicas }}"
+
+          if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
+            echo "🔄 Atualizando ${SERVICE_NAME}..."
+            docker service update --force \
+              --image "${IMAGE}" \
+              --mount-add \
+                type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+              --env-rm REDIS_PREFIX \
+              --env-rm CACHE_PREFIX \
+              --env-rm SESSION_PREFIX \
+              --env-rm HORIZON_PREFIX \
+              --env-add REDIS_PREFIX="${PREFIX}" \
+              --env-add CACHE_PREFIX="${PREFIX}cache" \
+              --env-add SESSION_PREFIX="${PREFIX}session" \
+              --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
+              --replicas "${SERVICE_REPLICAS}" \
+              --update-order start-first \
+              "${SERVICE_NAME}"
+          else
+            echo "🚀 Criando ${SERVICE_NAME}..."
+            docker service create \
+              --name "${SERVICE_NAME}" \
+              --replicas "${SERVICE_REPLICAS}" \
+              --network web \
+              --host host.docker.internal:host-gateway \
+              --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+              --env REDIS_PREFIX="${PREFIX}" \
+              --env CACHE_PREFIX="${PREFIX}cache" \
+              --env SESSION_PREFIX="${PREFIX}session" \
+              --env HORIZON_PREFIX="${PREFIX}horizon:" \
+              "${IMAGE}" "${COMMAND}"
+          fi

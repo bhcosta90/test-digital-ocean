@@ -49,7 +49,7 @@ jobs:
         with:
           image_name: ${{ env.IMAGE }}
 
-      - name: Deploy on server
+      - name: Setup environment and prepare server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -61,25 +61,18 @@ jobs:
             BRANCH="${{ env.BRANCH_NAME }}"
             REPO="${{ github.event.repository.name }}"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
-            APP_NAME="$REPO-$BRANCH"
             IMAGE="$USER/$REPO:$BRANCH"
-            ENV_BASE="${{ env.ENV_BASE }}"
 
-            echo "🚀 Deploying PR: $APP_NAME"
+            echo "🚀 Preparing PR Deploy: $REPO-$BRANCH"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
               docker login -u "$USER" --password-stdin
             docker pull "$IMAGE"
             docker network inspect web >/dev/null 2>&1 || \
               docker network create web
 
-            # Resolver ENV
-            # Verificar se existe arquivo específico da branch
-            # (ex: .env-minha-branch)
-            # Senão assume o .env padrão do repositório
             ENV_DIR="$HOME/${REPO}"
             mkdir -p "$ENV_DIR"
 
-            # Enviar todas as env para a pasta (caso exista o secret ENV)
             if [ -n "${{ secrets.ENV }}" ]; then
               echo "📝 Gerando arquivo de env específico para PR: \
                 $ENV_DIR/.env-$BRANCH"
@@ -87,10 +80,7 @@ jobs:
             fi
 
             FINAL_ENV="$ENV_DIR/.env-$BRANCH"
-
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "⚠️ Specific file not found at $FINAL_ENV"
-              echo "🔍 Trying default .env from repository..."
               FINAL_ENV="$ENV_DIR/.env"
             fi
 
@@ -98,69 +88,60 @@ jobs:
               echo "❌ Nenhum arquivo .env encontrado em $ENV_DIR!"
               exit 1
             fi
+            echo "FINAL_ENV=$FINAL_ENV" > .env_path_tmp
 
-            echo "✅ Usando ENV: $FINAL_ENV"
+      - name: Deploy Worker
+        uses: ./.github/actions/docker-swarm-deploy
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          user: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          service_name: >-
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-worker
+          image: ${{ env.IMAGE }}
+          env_file: >-
+            $HOME/${{ github.event.repository.name }}/.env-${{ env.BRANCH_NAME
+            }}
+          prefix: >-
+            ${{ github.event.repository.name }}_${{ env.BRANCH_NAME }}_
+          command: "worker"
+          replicas: "1"
 
-            # --- Services ---
-            PREFIX="${REPO}_${BRANCH}_"
+      - name: Deploy App
+        uses: ./.github/actions/docker-swarm-deploy
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          user: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          service_name: >-
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-app
+          image: ${{ env.IMAGE }}
+          env_file: >-
+            $HOME/${{ github.event.repository.name }}/.env-${{ env.BRANCH_NAME
+            }}
+          prefix: >-
+            ${{ github.event.repository.name }}_${{ env.BRANCH_NAME }}_
+          replicas: "1"
 
-            update_or_create_service() {
-              SERVICE_NAME=$1
-              COMMAND=$2
-              SERVICE_REPLICAS=${3:-1}
-
-              if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
-                echo "🔄 Atualizando ${SERVICE_NAME}..."
-                docker service update --force \
-                  --image "${IMAGE}" \
-                  --mount-add \
-                    type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
-                  --env-rm REDIS_PREFIX \
-                  --env-rm CACHE_PREFIX \
-                  --env-rm SESSION_PREFIX \
-                  --env-rm HORIZON_PREFIX \
-                  --env-add REDIS_PREFIX="${PREFIX}" \
-                  --env-add CACHE_PREFIX="${PREFIX}cache" \
-                  --env-add SESSION_PREFIX="${PREFIX}session" \
-                  --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
-                  --replicas "${SERVICE_REPLICAS}" \
-                  --update-order start-first \
-                  "${SERVICE_NAME}"
-              else
-                echo "🚀 Criando ${SERVICE_NAME}..."
-                docker service create \
-                  --name "${SERVICE_NAME}" \
-                  --replicas "${SERVICE_REPLICAS}" \
-                  --network web \
-                  --host host.docker.internal:host-gateway \
-                  --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
-                  --env REDIS_PREFIX="${PREFIX}" \
-                  --env CACHE_PREFIX="${PREFIX}cache" \
-                  --env SESSION_PREFIX="${PREFIX}session" \
-                  --env HORIZON_PREFIX="${PREFIX}horizon:" \
-                  "${IMAGE}" "${COMMAND}"
-              fi
-            }
-
-            # --- WORKER ---
-            update_or_create_service "${APP_NAME}-worker" "worker" 1
-
-            # --- APP ---
-            update_or_create_service "${APP_NAME}-app" ""
-
-            # --- Caddy Update ---
+      - name: Update Caddy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            REPO="${{ github.event.repository.name }}"
+            BRANCH="${{ env.BRANCH_NAME }}"
+            APP_NAME="$REPO-$BRANCH"
             DOMAIN="http://${{ env.DOMAIN }}"
             CADDYFILE="$HOME/CaddyfilePreview"
 
-            # No Swarm, o nome do serviço é usado como o hostname interno
-            # O reverse proxy deve apontar para o serviço da app
             if ! grep -q "$DOMAIN" "$CADDYFILE"; then
               echo "$DOMAIN {" >> "$CADDYFILE"
               echo "        reverse_proxy $APP_NAME-app:80" >> "$CADDYFILE"
               echo "}" >> "$CADDYFILE"
               docker service update --force caddy-preview || true
             fi
-
             echo "✅ PR Deploy finalizado: $APP_NAME no domínio $DOMAIN"
 
       - name: Comment on PR

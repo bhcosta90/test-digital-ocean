@@ -41,7 +41,7 @@ jobs:
           image_name: ${{ env.IMAGE }}
           push_latest: 'true'
 
-      - name: Deploy on server
+      - name: Prepare server and setup environment
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -50,51 +50,27 @@ jobs:
           timeout: 120s
           script: |
             set -e
-
             BRANCH="${{ github.ref_name }}"
             REPO="${{ github.event.repository.name }}"
             USER="${{ secrets.DOCKERHUB_USERNAME }}"
-
-            APP_NAME="$REPO-$BRANCH"
             IMAGE="$USER/$REPO:$BRANCH"
-            ENV_BASE="${{ env.ENV_BASE }}"
 
-            echo "🚀 Deploying $APP_NAME"
-
-            # 🔑 Login no Docker Hub (no servidor)
+            echo "🚀 Preparing Deploy: $REPO-$BRANCH"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
               docker login -u "$USER" --password-stdin
-
-            echo "📦 Baixando imagem..."
             docker pull "$IMAGE"
-
-            # 🔥 Limpeza opcional (evita encher disco)
             docker image prune -a -f || true
-
-            # Garantir network
             docker network inspect web >/dev/null 2>&1 || \
               docker network create --driver overlay web
 
-            # Resolver ENV
-            # Verificar se existe arquivo específico da branch
-            # (ex: .env-main, .env-sandbox)
-            # Se não encontrar, tenta .env-production para main ou master
-            # Senão assume o .env padrão
-
             FINAL_ENV="$HOME/$REPO/.env-$BRANCH"
-
-            # Caso especial: se branch for main ou master e
-            # .env-main/.env-master não existir, tentar .env-production
             if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
                 if [ ! -f "$FINAL_ENV" ]; then
-                    echo "🔍 Trying .env-production for main/master..."
                     FINAL_ENV="$HOME/$REPO/.env-production"
                 fi
             fi
 
             if [ ! -f "$FINAL_ENV" ]; then
-              echo "⚠️ Specific file not found at $FINAL_ENV"
-              echo "🔍 Trying default .env from repository..."
               FINAL_ENV="$HOME/$REPO/.env"
             fi
 
@@ -102,71 +78,58 @@ jobs:
               echo "❌ Nenhum arquivo .env encontrado em $HOME/$REPO/"
               exit 1
             fi
+            echo "✅ Server prepared for $BRANCH"
 
-            echo "✅ Usando ENV: $FINAL_ENV"
+      - name: Parse Replicas
+        id: replicas
+        shell: bash
+        run: |
+          REPLICAS=1
+          IFS=',' read -ra CONFIG_ARRAY <<< "${{ env.REPLICAS_CONFIG }}"
+          for item in "${CONFIG_ARRAY[@]}"; do
+            IFS=':' read -ra PAIR <<< "$item"
+            if [[ "${PAIR[0]}" == "${{ github.ref_name }}" ]]; then
+              REPLICAS="${PAIR[1]}"
+              break
+            fi
+          done
+          echo "count=$REPLICAS" >> $GITHUB_OUTPUT
 
-            PREFIX="${REPO}-${BRANCH}_"
+      - name: Deploy Worker
+        uses: ./.github/actions/docker-swarm-deploy
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          user: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          service_name: >-
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-worker
+          image: ${{ env.IMAGE }}
+          env_file: >-
+            $HOME/${{ github.event.repository.name }}/.env-${{ github.ref_name
+            }}
+          prefix: >-
+            ${{ github.event.repository.name }}-${{ github.ref_name }}_
+          command: "worker"
+          replicas: "1"
 
-            # Parse Replicas Config
-            REPLICAS=1
-            IFS=',' read -ra CONFIG_ARRAY <<< "${{ env.REPLICAS_CONFIG }}"
-            for item in "${CONFIG_ARRAY[@]}"; do
-              IFS=':' read -ra PAIR <<< "$item"
-              if [[ "${PAIR[0]}" == "$BRANCH" ]]; then
-                REPLICAS="${PAIR[1]}"
-                break
-              fi
-            done
+      - name: Deploy App
+        uses: ./.github/actions/docker-swarm-deploy
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          user: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          service_name: >-
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-app
+          image: ${{ env.IMAGE }}
+          env_file: >-
+            $HOME/${{ github.event.repository.name }}/.env-${{ github.ref_name
+            }}
+          prefix: >-
+            ${{ github.event.repository.name }}-${{ github.ref_name }}_
+          replicas: ${{ steps.replicas.outputs.count }}
 
-            echo "🔢 Replicas for $BRANCH: $REPLICAS"
-
-            update_or_create_service() {
-              SERVICE_NAME=$1
-              COMMAND=$2
-              SERVICE_REPLICAS=${3:-$REPLICAS}
-
-              if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
-                echo "🔄 Atualizando ${SERVICE_NAME}..."
-
-                docker service update --force \
-                  --image "${IMAGE}" \
-                  --replicas "${SERVICE_REPLICAS}" \
-                  --mount-add \
-                    type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
-                  --env-rm REDIS_PREFIX \
-                  --env-rm CACHE_PREFIX \
-                  --env-rm SESSION_PREFIX \
-                  --env-rm HORIZON_PREFIX \
-                  --env-add REDIS_PREFIX="${PREFIX}" \
-                  --env-add CACHE_PREFIX="${PREFIX}cache" \
-                  --env-add SESSION_PREFIX="${PREFIX}session" \
-                  --env-add HORIZON_PREFIX="${PREFIX}horizon:" \
-                  --update-order start-first \
-                  --update-parallelism 1 \
-                  --update-delay 3s \
-                  "${SERVICE_NAME}"
-
-              else
-                echo "🚀 Criando ${SERVICE_NAME}..."
-
-                docker service create \
-                  --name "${SERVICE_NAME}" \
-                  --replicas "${SERVICE_REPLICAS}" \
-                  --network web \
-                  --host host.docker.internal:host-gateway \
-                  --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
-                  --env REDIS_PREFIX="${PREFIX}" \
-                  --env CACHE_PREFIX="${PREFIX}cache" \
-                  --env SESSION_PREFIX="${PREFIX}session" \
-                  --env HORIZON_PREFIX="${PREFIX}horizon:" \
-                  "${IMAGE}" "${COMMAND}"
-                fi
-            }
-
-            # --- WORKER ---
-            update_or_create_service "${APP_NAME}-worker" "worker" 1
-
-            # --- APP ---
-            update_or_create_service "${APP_NAME}-app" ""
-
-            echo "✅ Deploy finalizado: $APP_NAME"
+      - name: Finalize Deploy
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          BRANCH="${{ github.ref_name }}"
+          echo "✅ Deploy finalizado: $REPO-$BRANCH"

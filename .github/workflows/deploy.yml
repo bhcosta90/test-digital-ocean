@@ -105,8 +105,8 @@ jobs:
             ${{ github.event.repository.name }}-${{ github.ref_name }}-worker
           image: ${{ env.IMAGE }}
           env_file: >-
-            $HOME/${{ github.event.repository.name }}/.env-${{ github.ref_name
-            }}
+            $HOME/${{ github.event.repository.name }}/.env-${{
+            github.ref_name }}
           prefix: >-
             ${{ github.event.repository.name }}-${{ github.ref_name }}_
           command: "worker"
@@ -122,8 +122,8 @@ jobs:
             ${{ github.event.repository.name }}-${{ github.ref_name }}-app
           image: ${{ env.IMAGE }}
           env_file: >-
-            $HOME/${{ github.event.repository.name }}/.env-${{ github.ref_name
-            }}
+            $HOME/${{ github.event.repository.name }}/.env-${{
+            github.ref_name }}
           prefix: >-
             ${{ github.event.repository.name }}-${{ github.ref_name }}_
           replicas: ${{ steps.replicas.outputs.count }}

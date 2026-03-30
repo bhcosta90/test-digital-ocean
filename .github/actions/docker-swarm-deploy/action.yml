@@ -42,17 +42,32 @@ runs:
         script: |
           SERVICE_NAME="${{ inputs.service_name }}"
           IMAGE="${{ inputs.image }}"
-          FINAL_ENV="${{ inputs.env_file }}"
+          ENV_FILE="${{ inputs.env_file }}"
           PREFIX="${{ inputs.prefix }}"
           COMMAND="${{ inputs.command }}"
           SERVICE_REPLICAS="${{ inputs.replicas }}"
+
+          # Verificar se o arquivo .env existe no servidor
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "⚠️ Arquivo $ENV_FILE não encontrado. \
+              Tentando fallback para .env padrão..."
+            ENV_DIR=$(dirname "$ENV_FILE")
+            if [ -f "$ENV_DIR/.env" ]; then
+              ENV_FILE="$ENV_DIR/.env"
+              echo "✅ Usando fallback: $ENV_FILE"
+            else
+              echo "❌ Erro: Nenhum arquivo .env encontrado em $ENV_DIR"
+              exit 1
+            fi
+          fi
 
           if docker service inspect "${SERVICE_NAME}" >/dev/null 2>&1; then
             echo "🔄 Atualizando ${SERVICE_NAME}..."
             docker service update --force \
               --image "${IMAGE}" \
+              --mount-rm /var/www/html/.env \
               --mount-add \
-                type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+                type=bind,src="${ENV_FILE}",dst=/var/www/html/.env \
               --env-rm REDIS_PREFIX \
               --env-rm CACHE_PREFIX \
               --env-rm SESSION_PREFIX \
@@ -71,10 +86,10 @@ runs:
               --replicas "${SERVICE_REPLICAS}" \
               --network web \
               --host host.docker.internal:host-gateway \
-              --mount type=bind,src="${FINAL_ENV}",dst=/var/www/html/.env \
+              --mount type=bind,src="${ENV_FILE}",dst=/var/www/html/.env \
               --env REDIS_PREFIX="${PREFIX}" \
               --env CACHE_PREFIX="${PREFIX}cache" \
               --env SESSION_PREFIX="${PREFIX}session" \
               --env HORIZON_PREFIX="${PREFIX}horizon:" \
-              "${IMAGE}" "${COMMAND}"
+              "${IMAGE}" ${COMMAND}
           fi

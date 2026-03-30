@@ -100,10 +100,10 @@ jobs:
             ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-worker
           image: ${{ env.IMAGE }}
           env_file: >-
-            $HOME/${{ github.event.repository.name }}/.env-${{ env.BRANCH_NAME
-            }}
+            $HOME/${{ github.event.repository.name }}/.env-${{
+            env.BRANCH_NAME }}
           prefix: >-
-            ${{ github.event.repository.name }}_${{ env.BRANCH_NAME }}_
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}_
           command: "worker"
           replicas: "1"
 
@@ -117,10 +117,10 @@ jobs:
             ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}-app
           image: ${{ env.IMAGE }}
           env_file: >-
-            $HOME/${{ github.event.repository.name }}/.env-${{ env.BRANCH_NAME
-            }}
+            $HOME/${{ github.event.repository.name }}/.env-${{
+            env.BRANCH_NAME }}
           prefix: >-
-            ${{ github.event.repository.name }}_${{ env.BRANCH_NAME }}_
+            ${{ github.event.repository.name }}-${{ env.BRANCH_NAME }}_
           replicas: "1"
 
       - name: Update Caddy

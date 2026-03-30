@@ -18,19 +18,20 @@ chmod -R 775 ./storage ./bootstrap/cache
 
 # Se o primeiro argumento for 'worker', rodar o worker e sair
 if [ "$1" = "worker" ]; then
-    echo "⏸️ Pausing Horizon..."
-    php artisan horizon:pause
+    echo "⏸️  Checking Horizon status..."
+    # Usar || true para evitar que o set -e quebre o script se o Redis estiver inacessível
+    php artisan horizon:pause || echo "⚠️  Horizon pause falhou (pode ser o primeiro deploy)"
 
     echo "⏳  Waiting for running jobs to finish..."
-    while php artisan horizon:status | grep -q running; do
+    while php artisan horizon:status 2>/dev/null | grep -q running; do
       echo "⏳  Still processing jobs... waiting 5s"
       sleep 5
     done
 
-    echo "♻️ Restarting Horizon..."
-    php artisan horizon:terminate
+    echo "♻️  Restarting Horizon..."
+    php artisan horizon:terminate || echo "⚠️  Horizon terminate falhou"
 
-    echo "▶️ Starting Horizon..."
+    echo "▶️  Starting Horizon..."
     exec php artisan horizon
 fi
 

@@ -81,7 +81,11 @@ runs:
               --env-add APP_NAME="${SERVICE_NAME}" \
               --replicas "${SERVICE_REPLICAS}" \
               --update-order start-first \
-              "${SERVICE_NAME}"
+              "${SERVICE_NAME}" || { \
+                echo "❌ Erro no deploy! Logs do serviço:"; \
+                docker service logs "${SERVICE_NAME}" --tail 20; \
+                exit 1; \
+              }
           else
             echo "🚀 Criando ${SERVICE_NAME}..."
             docker service create \
@@ -95,5 +99,9 @@ runs:
               --env SESSION_PREFIX="${PREFIX}session" \
               --env HORIZON_PREFIX="${PREFIX}horizon:" \
               --env APP_NAME="${SERVICE_NAME}" \
-              "${IMAGE}" ${COMMAND}
+              "${IMAGE}" ${COMMAND} || { \
+                echo "❌ Erro na criação! Logs do serviço:"; \
+                docker service logs "${SERVICE_NAME}" --tail 20; \
+                exit 1; \
+              }
           fi
